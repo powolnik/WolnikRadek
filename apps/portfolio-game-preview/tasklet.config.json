@@ -1,0 +1,5 @@
+{
+  "name": "portfolio-game-preview",
+  "displayName": "Portfolio Game – Template Preview",
+  "description": "Live browser preview of the C++/WASM game template — mirrors the SDL2 render() output"
+}

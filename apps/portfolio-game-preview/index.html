@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Portfolio Game – Template Preview</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%; height: 100%;
+      background: #08081a;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      font-family: 'Courier New', monospace;
+    }
+    #top-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 14px;
+      background: rgba(8,8,26,0.95);
+      border-bottom: 1px solid rgba(96,96,255,0.18);
+      flex-shrink: 0;
+    }
+    .bar-label {
+      font-size: 0.65rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: rgba(160,160,220,0.5);
+    }
+    .bar-chip {
+      font-size: 0.6rem;
+      letter-spacing: 0.1em;
+      padding: 2px 8px;
+      border-radius: 3px;
+      border: 1px solid rgba(96,96,255,0.35);
+      color: rgba(140,140,255,0.8);
+    }
+    #canvas-wrap {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+    canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      cursor: crosshair;
+    }
+    /* HUD overlay elements */
+    #hud {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+    #hud-tl {
+      position: absolute;
+      top: 14px; left: 16px;
+      font-size: 0.6rem;
+      letter-spacing: 0.12em;
+      color: rgba(100,100,200,0.55);
+      line-height: 1.7;
+    }
+    #hud-tr {
+      position: absolute;
+      top: 14px; right: 16px;
+      font-size: 0.6rem;
+      letter-spacing: 0.12em;
+      color: rgba(100,100,200,0.55);
+      text-align: right;
+      line-height: 1.7;
+    }
+    #hud-br {
+      position: absolute;
+      bottom: 12px; right: 16px;
+      font-size: 0.6rem;
+      letter-spacing: 0.1em;
+      color: rgba(100,100,200,0.4);
+    }
+    #hint {
+      position: absolute;
+      bottom: 32px; left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.6rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: rgba(160,160,255,0.3);
+      white-space: nowrap;
+      animation: fade 3s ease-in-out infinite;
+    }
+    @keyframes fade {
+      0%,100% { opacity: 0.3; }
+      50%      { opacity: 0.7; }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="top-bar">
+    <span class="bar-label">C++ / SDL2 → WebAssembly — Template Preview</span>
+    <span class="bar-chip">render() mirror</span>
+  </div>
+
+  <div id="canvas-wrap">
+    <canvas id="canvas"></canvas>
+
+    <div id="hud">
+      <div id="hud-tl">
+        <div>ENGINE  C++17 / SDL2</div>
+        <div>TARGET  WebAssembly</div>
+        <div id="fps-line">FPS  —</div>
+      </div>
+      <div id="hud-tr">
+        <div>SCENE  [placeholder]</div>
+        <div id="time-line">T  0.000</div>
+        <div id="frame-line">FRAME  0</div>
+      </div>
+      <div id="hud-br">WebGL2 · SDL2 · Emscripten</div>
+    </div>
+
+    <div id="hint">move cursor · click to interact</div>
+  </div>
+
+<script>
+// ── Canvas setup ─────────────────────────────────────────────────────────────
+const canvas = document.getElementById('canvas');
+const ctx    = canvas.getContext('2d');
+
+let W = 0, H = 0;
+function resize() {
+  W = canvas.width  = canvas.offsetWidth;
+  H = canvas.height = canvas.offsetHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// ── State (mirrors C++ GameState) ────────────────────────────────────────────
+const state = {
+  totalTime : 0,
+  frameCount: 0,
+  mouse     : { x: 0, y: 0, down: false },
+  keys      : new Set(),
+  // fps tracking
+  _lastFpsTime: 0,
+  _fpsFrames  : 0,
+  fps         : 0,
+};
+
+// ── Input ─────────────────────────────────────────────────────────────────────
+canvas.addEventListener('mousemove', e => {
+  const r = canvas.getBoundingClientRect();
+  state.mouse.x = (e.clientX - r.left) * (W / r.width);
+  state.mouse.y = (e.clientY - r.top)  * (H / r.height);
+});
+canvas.addEventListener('mousedown', () => { state.mouse.down = true;  });
+canvas.addEventListener('mouseup',   () => { state.mouse.down = false; });
+window.addEventListener('keydown', e => state.keys.add(e.key));
+window.addEventListener('keyup',   e => state.keys.delete(e.key));
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function fillRect(x, y, w, h, r, g, b, a = 1) {
+  ctx.fillStyle = `rgba(${r},${g},${b},${a})`;
+  ctx.fillRect(x, y, w, h);
+}
+function strokeRect(x, y, w, h, r, g, b, a = 1) {
+  ctx.strokeStyle = `rgba(${r},${g},${b},${a})`;
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+}
+
+// ── render() — direct port of C++ render() ───────────────────────────────────
+function render(t) {
+  // Background
+  fillRect(0, 0, W, H, 8, 8, 18, 1);
+
+  // Animated scrolling dot grid
+  const GRID   = 48;
+  const scroll = (t * 24) % GRID;
+  for (let y = -scroll; y < H + GRID; y += GRID) {
+    for (let x = -scroll; x < W + GRID; x += GRID) {
+      const pulse = 0.25 + 0.15 * Math.sin(t * 1.5 + (x + y) * 0.01);
+      ctx.fillStyle = `rgba(60,80,160,${pulse})`;
+      ctx.fillRect(x + GRID / 2 - 1.5, y + GRID / 2 - 1.5, 3, 3);
+    }
+  }
+
+  // Centre placeholder card
+  const CW = Math.min(480, W * 0.75);
+  const CH = 200;
+  const CX = (W - CW) / 2;
+  const CY = (H - CH) / 2;
+
+  // Card bg
+  fillRect(CX, CY, CW, CH, 14, 14, 30, 0.88);
+
+  // Pulsing border
+  const bright = 0.5 + 0.5 * Math.sin(t * 2.0);
+  const bv = Math.round(bright * 160 + 40);
+  strokeRect(CX, CY, CW, CH, bv, bv >> 1, 255, 1);
+
+  // Card inner content: "PORTFOLIO" label placeholder
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  // Title text
+  ctx.font = `bold ${Math.round(CW * 0.07)}px 'Courier New', monospace`;
+  ctx.fillStyle = `rgba(${bv},${bv >> 1},255,0.85)`;
+  ctx.fillText('[ PORTFOLIO ]', CX + CW / 2, CY + CH * 0.38);
+  // Subtitle placeholder
+  ctx.font = `${Math.round(CW * 0.036)}px 'Courier New', monospace`;
+  ctx.fillStyle = 'rgba(180,180,220,0.35)';
+  ctx.fillText('C++ / Unreal Engine Developer', CX + CW / 2, CY + CH * 0.58);
+  // Blink cursor
+  if (Math.floor(t * 2) % 2 === 0) {
+    ctx.fillStyle = `rgba(${bv},${bv >> 1},255,0.6)`;
+    const cursorX = CX + CW / 2 + ctx.measureText('_').width;
+    ctx.fillText('_', CX + CW / 2, CY + CH * 0.72);
+  }
+  ctx.restore();
+
+  // Crosshair at mouse position
+  const mx = state.mouse.x, my = state.mouse.y;
+  const cv = state.mouse.down ? 255 : 160;
+  const alpha = state.mouse.down ? 0.9 : 0.6;
+  ctx.strokeStyle = `rgba(${cv},${cv},${cv},${alpha})`;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(mx - 10, my); ctx.lineTo(mx + 10, my);
+  ctx.moveTo(mx, my - 10); ctx.lineTo(mx, my + 10);
+  ctx.stroke();
+
+  // Small dot at crosshair centre
+  ctx.fillStyle = `rgba(${cv},${cv},255,${alpha})`;
+  ctx.fillRect(mx - 1.5, my - 1.5, 3, 3);
+}
+
+// ── Main loop ─────────────────────────────────────────────────────────────────
+let lastTs = null;
+const fpsEl   = document.getElementById('fps-line');
+const timeEl  = document.getElementById('time-line');
+const frameEl = document.getElementById('frame-line');
+
+function loop(ts) {
+  if (lastTs === null) lastTs = ts;
+  const dt = Math.min((ts - lastTs) / 1000, 0.05);
+  lastTs = ts;
+
+  state.totalTime  += dt;
+  state.frameCount += 1;
+
+  // FPS counter (update every second)
+  state._fpsFrames++;
+  if (ts - state._lastFpsTime >= 1000) {
+    state.fps = Math.round(state._fpsFrames * 1000 / (ts - state._lastFpsTime));
+    state._fpsFrames  = 0;
+    state._lastFpsTime = ts;
+    fpsEl.textContent  = `FPS  ${state.fps}`;
+  }
+
+  timeEl.textContent  = `T  ${state.totalTime.toFixed(3)}`;
+  frameEl.textContent = `FRAME  ${state.frameCount}`;
+
+  render(state.totalTime);
+  requestAnimationFrame(loop);
+}
+
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
