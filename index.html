@@ -488,6 +488,155 @@
 
 </div><!-- /shell -->
 
+<!-- ═══════════════════ TERMINAL INTRO OVERLAY ═══════════════════ -->
+<div id="intro">
+  <div id="intro-inner">
+    <div id="intro-top-bar">
+      <span class="intro-dot" style="background:#ff5f57"></span>
+      <span class="intro-dot" style="background:#ffbd2e"></span>
+      <span class="intro-dot" style="background:#28c840"></span>
+      <span id="intro-title">portfolio.exe</span>
+    </div>
+    <div id="intro-body">
+      <div id="intro-lines"></div>
+      <span id="intro-cursor">█</span>
+    </div>
+    <div id="intro-skip">[ press any key or click to skip ]</div>
+  </div>
+</div>
+
+<style>
+  #intro {
+    position: fixed; inset: 0; z-index: 9999;
+    background: #05050f;
+    display: flex; align-items: center; justify-content: center;
+    transition: opacity 0.6s ease;
+  }
+  #intro.fade-out { opacity: 0; pointer-events: none; }
+
+  #intro-inner {
+    width: min(680px, 92vw);
+    background: #0a0a1e;
+    border: 1px solid rgba(96,96,255,0.35);
+    border-radius: 8px;
+    box-shadow: 0 0 60px rgba(60,60,200,0.25), 0 0 120px rgba(30,30,100,0.18);
+    overflow: hidden;
+    font-family: 'Courier New', monospace;
+  }
+
+  #intro-top-bar {
+    display: flex; align-items: center; gap: 7px;
+    padding: 10px 14px;
+    background: rgba(96,96,255,0.08);
+    border-bottom: 1px solid rgba(96,96,255,0.18);
+  }
+  .intro-dot { width:12px; height:12px; border-radius:50%; display:inline-block; }
+  #intro-title {
+    flex: 1; text-align: center;
+    font-size: 12px; color: rgba(160,160,210,0.6);
+    letter-spacing: 0.12em;
+  }
+
+  #intro-body {
+    padding: 24px 28px 12px;
+    min-height: 190px;
+    font-size: clamp(12px, 1.6vw, 14px);
+    line-height: 1.85;
+    color: rgba(180,180,230,0.85);
+  }
+
+  #intro-lines .line { display: block; white-space: pre; }
+  #intro-lines .line.cmd  { color: #8080ff; }
+  #intro-lines .line.ok   { color: #28c840; }
+  #intro-lines .line.info { color: rgba(160,160,220,0.65); }
+  #intro-lines .line.done { color: #ffffff; font-weight: bold; }
+
+  #intro-cursor {
+    display: inline-block; color: #6060ff;
+    animation: blink 0.75s step-end infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+  #intro-skip {
+    text-align: center;
+    padding: 10px 0 14px;
+    font-size: 11px;
+    color: rgba(100,100,180,0.5);
+    letter-spacing: 0.08em;
+    border-top: 1px solid rgba(96,96,255,0.1);
+    animation: pulse-skip 2s ease-in-out infinite;
+  }
+  @keyframes pulse-skip { 0%,100%{opacity:.4} 50%{opacity:1} }
+</style>
+
+<script>
+(function(){
+  const overlay  = document.getElementById('intro');
+  const linesEl  = document.getElementById('intro-lines');
+
+  const SEQ = [
+    { cls:'cmd',  text:'radek@portfolio:~$ ./portfolio.exe',                          pause:500,  type:true  },
+    { cls:'info', text:'Booting runtime engine...',                                   pause:650,  type:false },
+    { cls:'ok',   text:'[  OK  ]  Renderer initialised',                              pause:280,  type:false },
+    { cls:'ok',   text:'[  OK  ]  Game assets loaded',                                pause:260,  type:false },
+    { cls:'ok',   text:'[  OK  ]  Sections mounted: hero · games · artwork · skills', pause:300,  type:false },
+    { cls:'ok',   text:'[  OK  ]  Canvas backend active',                             pause:240,  type:false },
+    { cls:'cmd',  text:'radek@portfolio:~$ echo "Welcome."',                          pause:460,  type:true  },
+    { cls:'done', text:'Welcome.',                                                    pause:0,    type:false },
+  ];
+
+  let dismissed = false;
+  function dismiss() {
+    if (dismissed) return;
+    dismissed = true;
+    overlay.classList.add('fade-out');
+    setTimeout(() => { try { overlay.remove(); } catch(e){} }, 680);
+  }
+
+  overlay.addEventListener('click', dismiss);
+  document.addEventListener('keydown', dismiss, { once: true });
+
+  function addLine(cls, text) {
+    const el = document.createElement('span');
+    el.className = 'line ' + cls;
+    el.textContent = text;
+    linesEl.appendChild(el);
+  }
+
+  function typeLine(cls, text, cb) {
+    const el = document.createElement('span');
+    el.className = 'line ' + cls;
+    el.textContent = '';
+    linesEl.appendChild(el);
+    let i = 0;
+    function tick() {
+      if (dismissed) { el.textContent = text; cb(); return; }
+      el.textContent = text.slice(0, ++i);
+      if (i < text.length) setTimeout(tick, 26); else cb();
+    }
+    tick();
+  }
+
+  let idx = 0;
+  function next() {
+    if (dismissed) return;
+    if (idx >= SEQ.length) { setTimeout(dismiss, 850); return; }
+    const item = SEQ[idx++];
+    setTimeout(() => {
+      if (dismissed) return;
+      if (item.type) {
+        typeLine(item.cls, item.text, next);
+      } else {
+        addLine(item.cls, item.text);
+        next();
+      }
+    }, item.pause);
+  }
+
+  setTimeout(next, 200);
+})();
+</script>
+
 <script>
 // ── Background canvas animation ───────────────────────────────────────────────
 const canvas = document.getElementById('bg-canvas');
