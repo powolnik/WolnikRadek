@@ -575,13 +575,13 @@
   const linesEl  = document.getElementById('intro-lines');
 
   const SEQ = [
-    { cls:'cmd',  text:'radek@portfolio:~$ ./portfolio.exe',                          pause:500,  type:true  },
-    { cls:'info', text:'Booting runtime engine...',                                   pause:650,  type:false },
-    { cls:'ok',   text:'[  OK  ]  Renderer initialised',                              pause:280,  type:false },
+    { cls:'cmd',  text:'radek@portfolio:~$ ./portfolio.exe',                          pause:250,  type:true  },
+    { cls:'info', text:'Booting runtime engine...',                                   pause:325,  type:false },
+    { cls:'ok',   text:'[  OK  ]  Renderer initialised',                              pause:140,  type:false },
     { cls:'ok',   text:'[  OK  ]  Game assets loaded',                                pause:260,  type:false },
-    { cls:'ok',   text:'[  OK  ]  Sections mounted: hero · games · artwork · skills', pause:300,  type:false },
-    { cls:'ok',   text:'[  OK  ]  Canvas backend active',                             pause:240,  type:false },
-    { cls:'cmd',  text:'radek@portfolio:~$ echo "Welcome."',                          pause:460,  type:true  },
+    { cls:'ok',   text:'[  OK  ]  Sections mounted: hero · games · artwork · skills', pause:150,  type:false },
+    { cls:'ok',   text:'[  OK  ]  Canvas backend active',                             pause:120,  type:false },
+    { cls:'cmd',  text:'radek@portfolio:~$ echo "Welcome."',                          pause:230,  type:true  },
     { cls:'done', text:'Welcome.',                                                    pause:0,    type:false },
   ];
 
@@ -590,7 +590,7 @@
     if (dismissed) return;
     dismissed = true;
     overlay.classList.add('fade-out');
-    setTimeout(() => { try { overlay.remove(); } catch(e){} }, 680);
+    setTimeout(() => { try { overlay.remove(); } catch(e){} }, 350);
   }
 
   overlay.addEventListener('click', dismiss);
@@ -612,7 +612,7 @@
     function tick() {
       if (dismissed) { el.textContent = text; cb(); return; }
       el.textContent = text.slice(0, ++i);
-      if (i < text.length) setTimeout(tick, 26); else cb();
+      if (i < text.length) setTimeout(tick, 12); else cb();
     }
     tick();
   }
@@ -620,7 +620,7 @@
   let idx = 0;
   function next() {
     if (dismissed) return;
-    if (idx >= SEQ.length) { setTimeout(dismiss, 850); return; }
+    if (idx >= SEQ.length) { setTimeout(dismiss, 400); return; }
     const item = SEQ[idx++];
     setTimeout(() => {
       if (dismissed) return;
@@ -633,7 +633,7 @@
     }, item.pause);
   }
 
-  setTimeout(next, 200);
+  setTimeout(next, 100);
 })();
 </script>
 
