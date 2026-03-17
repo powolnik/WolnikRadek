@@ -260,7 +260,39 @@
       #content { padding: 32px 16px 48px; }
       h1 { font-size: 1.5rem; }
     }
-  </style>
+  
+/* ── Enter choice overlay ──────────────────────────────── */
+#enter-choice {
+  position: fixed; inset: 0; z-index: 999;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  background: rgba(5,5,18,0.95);
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.4s ease;
+}
+#enter-choice.visible { opacity: 1; pointer-events: all; }
+#enter-choice .ec-label {
+  font-family: 'Courier New', monospace;
+  color: rgba(160,160,220,0.55);
+  font-size: 12px; letter-spacing: 0.18em;
+  text-transform: uppercase; margin-bottom: 36px;
+}
+.enter-btn {
+  font-family: 'Courier New', monospace;
+  font-size: 14px; letter-spacing: 0.1em;
+  border: 1px solid rgba(96,96,255,0.4);
+  background: rgba(10,10,30,0.7);
+  color: #b0b0e0; cursor: pointer;
+  padding: 13px 44px; margin: 7px;
+  border-radius: 6px; min-width: 260px;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+.enter-btn:hover {
+  background: rgba(50,50,180,0.22);
+  border-color: rgba(130,130,255,0.85);
+  color: #ffffff;
+}
+</style>
 </head>
 <body>
 
@@ -590,7 +622,7 @@
     if (dismissed) return;
     dismissed = true;
     overlay.classList.add('fade-out');
-    setTimeout(() => { try { overlay.remove(); } catch(e){} }, 350);
+    setTimeout(() => { try { overlay.remove(); } catch(e){} showEnterChoice(); }, 350);
   }
 
   overlay.addEventListener('click', dismiss);
@@ -713,6 +745,26 @@ function loop(ts) {
 }
 
 requestAnimationFrame(loop);
+
+// ── Enter choice ──────────────────────────────────────────
+const enterChoice = document.getElementById('enter-choice');
+function showEnterChoice() {
+  enterChoice.classList.add('visible');
+  document.getElementById('btn-portfolio').addEventListener('click', () => {
+    enterChoice.style.transition = 'opacity 0.3s ease';
+    enterChoice.style.opacity = '0';
+    setTimeout(() => { try { enterChoice.remove(); } catch(e){} }, 300);
+  });
+  document.getElementById('btn-game').addEventListener('click', () => {
+    window.location.href = 'portfolio-game/index.html';
+  });
+}
 </script>
+
+<div id="enter-choice">
+  <div class="ec-label">// select destination</div>
+  <button class="enter-btn" id="btn-portfolio">[ &#128193;  view portfolio ]</button>
+  <button class="enter-btn" id="btn-game">[ &#9654;  play game ]</button>
+</div>
 </body>
 </html>
