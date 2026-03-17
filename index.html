@@ -44,6 +44,7 @@
       display: flex;
       flex-direction: column;
       min-height: 100vh;
+      visibility: hidden;
     }
 
     /* ── top bar ───────────────────────────────────────── */
@@ -753,6 +754,7 @@ function showEnterChoice() {
   if (!enterChoice) return;
   enterChoice.classList.add('visible');
   document.getElementById('btn-portfolio').addEventListener('click', () => {
+    document.getElementById('shell').style.visibility = 'visible';
     enterChoice.style.transition = 'opacity 0.3s ease';
     enterChoice.style.opacity = '0';
     setTimeout(() => { try { enterChoice.remove(); } catch(e){} }, 300);
