@@ -1,25 +1,21 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Portfolio</title>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Zielony Pływak // Portfolio Game</title>
   <style>
-    /* ── Reset & base ─────────────────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
     :root {
-      --bg:       #08081a;
-      --accent:   #6060ff;
-      --text:     #c8c8e8;
-      --card-bg:  #0e0e20;
+      --bg:     #08081a;
+      --accent: #6060ff;
+      --font:   'Courier New', monospace;
     }
-
     html, body {
       width: 100%; height: 100%;
       background: var(--bg);
-      color: var(--text);
-      font-family: 'Courier New', Courier, monospace;
+      color: rgba(180,180,230,0.85);
+      font-family: var(--font);
       overflow: hidden;
       display: flex;
       flex-direction: column;
@@ -27,136 +23,177 @@
       justify-content: center;
     }
 
-    /* ── Loading screen ───────────────────────────────────────────────── */
+    /* ── Canvas wrapper ─────────────────────────────── */
+    #canvas-wrap {
+      position: relative;
+      border: 1px solid rgba(96,96,255,0.35);
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 0 60px rgba(60,60,200,0.25), 0 0 120px rgba(30,30,100,0.18);
+    }
+
+    canvas.emscripten {
+      display: block;
+      background: var(--bg);
+    }
+
+    /* ── Loading overlay ────────────────────────────── */
     #loading {
-      position: fixed; inset: 0;
+      position: absolute;
+      inset: 0;
       background: var(--bg);
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 1.5rem;
-      z-index: 100;
-      transition: opacity 0.5s ease;
+      gap: 16px;
+      z-index: 10;
+      transition: opacity 0.6s ease;
     }
     #loading.hidden { opacity: 0; pointer-events: none; }
 
-    .loading-title {
-      font-size: 1.1rem;
-      letter-spacing: 0.3em;
-      text-transform: uppercase;
-      color: var(--accent);
+    .load-title {
+      font-size: 14px;
+      letter-spacing: 0.2em;
+      color: rgba(96,96,255,0.8);
     }
-
-    .progress-bar {
-      width: 260px; height: 3px;
-      background: #1a1a2e;
+    .load-bar-wrap {
+      width: 260px; height: 4px;
+      background: rgba(96,96,255,0.12);
       border-radius: 2px;
       overflow: hidden;
     }
-    .progress-bar-fill {
+    .load-bar {
       height: 100%;
-      background: var(--accent);
       width: 0%;
-      transition: width 0.1s linear;
+      background: linear-gradient(90deg, #6060ff, #9060ff);
+      border-radius: 2px;
+      transition: width 0.3s ease;
+    }
+    .load-status {
+      font-size: 11px;
+      color: rgba(120,120,200,0.5);
+      letter-spacing: 0.1em;
     }
 
-    .loading-status {
-      font-size: 0.7rem;
-      letter-spacing: 0.12em;
-      opacity: 0.5;
-    }
-
-    /* ── Canvas wrapper ───────────────────────────────────────────────── */
-    #canvas-container {
-      position: relative;
-      line-height: 0;
-    }
-
-    canvas#canvas {
-      display: block;
-      /* Letterbox to viewport while preserving 16:9 */
-      max-width:  min(100vw, calc(100vh * 16 / 9));
-      max-height: min(100vh, calc(100vw * 9 / 16));
-      width:  1280px;
-      height: 720px;
-      image-rendering: pixelated;
-      cursor: crosshair;
-    }
-
-    /* ── Status bar ───────────────────────────────────────────────────── */
-    #status-bar {
-      position: fixed;
-      bottom: 0; left: 0; right: 0;
-      padding: 4px 12px;
-      background: rgba(8,8,26,0.85);
-      border-top: 1px solid rgba(96,96,255,0.15);
+    /* ── Controls bar ───────────────────────────────── */
+    #controls-bar {
       display: flex;
+      align-items: center;
       justify-content: space-between;
-      font-size: 0.65rem;
+      width: min(1280px, 96vw);
+      padding: 10px 0;
+      font-size: 0.55rem;
+      letter-spacing: 0.12em;
+      color: rgba(80,80,160,0.5);
+    }
+    #controls-bar a {
+      color: rgba(96,96,255,0.6);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    #controls-bar a:hover { color: rgba(130,130,255,0.9); }
+
+    /* ── Fullscreen button ──────────────────────────── */
+    #fs-btn {
+      position: absolute;
+      top: 8px; right: 8px;
+      background: rgba(10,10,30,0.7);
+      border: 1px solid rgba(96,96,255,0.3);
+      color: rgba(160,160,220,0.7);
+      font-family: var(--font);
+      font-size: 11px;
       letter-spacing: 0.08em;
-      opacity: 0.6;
+      padding: 5px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      z-index: 5;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    #fs-btn:hover {
+      background: rgba(50,50,180,0.22);
+      border-color: rgba(130,130,255,0.8);
+      color: #fff;
     }
   </style>
 </head>
 <body>
 
-  <!-- Loading overlay -->
+<div id="canvas-wrap">
   <div id="loading">
-    <div class="loading-title">Initialising</div>
-    <div class="progress-bar">
-      <div class="progress-bar-fill" id="progress-fill"></div>
-    </div>
-    <div class="loading-status" id="loading-status">Loading WebAssembly…</div>
+    <div class="load-title">LOADING WASM...</div>
+    <div class="load-bar-wrap"><div class="load-bar" id="load-bar"></div></div>
+    <div class="load-status" id="load-status">initializing...</div>
   </div>
+  <button id="fs-btn" onclick="toggleFS()">[ fullscreen ]</button>
+  <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
+</div>
 
-  <!-- Game canvas -->
-  <div id="canvas-container">
-    <canvas id="canvas" oncontextmenu="event.preventDefault()"></canvas>
-  </div>
+<div id="controls-bar">
+  <span>WASD / ←→ move &nbsp;|&nbsp; SPACE jump &nbsp;|&nbsp; E pickup &nbsp;|&nbsp; ESC pause</span>
+  <a href="../index.html">[ ← back to portfolio ]</a>
+  <span id="fps-counter">FPS —</span>
+</div>
 
-  <!-- Status bar -->
-  <div id="status-bar">
-    <span id="status-left">C++ / WebAssembly</span>
-    <span id="status-right"></span>
-  </div>
+<script>
+  // ── Loading progress ──────────────────────────────
+  var loadBar = document.getElementById('load-bar');
+  var loadStatus = document.getElementById('load-status');
+  var loadingOverlay = document.getElementById('loading');
 
-  <!-- Emscripten glue (injected by compiler) -->
-  {{{ SCRIPT }}}
+  var Module = {
+    preRun: [],
+    postRun: [function() {
+      loadingOverlay.classList.add('hidden');
+      document.getElementById('canvas').focus();
+    }],
+    canvas: (function() {
+      var c = document.getElementById('canvas');
+      c.addEventListener('webglcontextlost', function(e) {
+        alert('WebGL context lost. Please reload.');
+        e.preventDefault();
+      }, false);
+      return c;
+    })(),
+    setStatus: function(text) {
+      if (!text) {
+        loadingOverlay.classList.add('hidden');
+        return;
+      }
+      var m = text.match(/([^(]+)\((\d+(\.\d+)?)\/(\d+)\)/);
+      if (m) {
+        var pct = (parseFloat(m[2]) / parseFloat(m[4])) * 100;
+        loadBar.style.width = pct + '%';
+        loadStatus.textContent = m[1].trim().toLowerCase();
+      } else {
+        loadBar.style.width = '100%';
+        loadStatus.textContent = text.toLowerCase();
+      }
+    },
+    totalDependencies: 0,
+    monitorRunDependencies: function(left) {
+      this.totalDependencies = Math.max(this.totalDependencies, left);
+      Module.setStatus(left ? 'Preparing... (' + (this.totalDependencies-left) + '/' + this.totalDependencies + ')' : '');
+    }
+  };
 
-  <script>
-    // ── Emscripten module config ─────────────────────────────────────────
-    var Module = {
-      canvas: (function() { return document.getElementById('canvas'); })(),
+  Module.setStatus('Downloading...');
+  window.onerror = function() {
+    Module.setStatus('Error — see console');
+  };
 
-      setStatus: function(text) {
-        var el = document.getElementById('loading-status');
-        if (el) el.textContent = text || 'Ready';
+  // ── Fullscreen toggle ─────────────────────────────
+  function toggleFS() {
+    var wrap = document.getElementById('canvas-wrap');
+    if (!document.fullscreenElement) {
+      wrap.requestFullscreen().catch(function(){});
+    } else {
+      document.exitFullscreen();
+    }
+  }
+</script>
 
-        // Parse "Downloading… X%" style messages for the progress bar
-        var m = text.match(/(\d+(\.\d+)?)%/);
-        var fill = document.getElementById('progress-fill');
-        if (m && fill) {
-          fill.style.width = m[1] + '%';
-        } else if (!text && fill) {
-          fill.style.width = '100%';
-          setTimeout(function() {
-            var overlay = document.getElementById('loading');
-            if (overlay) overlay.classList.add('hidden');
-          }, 400);
-        }
-      },
-
-      onRuntimeInitialized: function() {
-        Module.setStatus('');
-        document.getElementById('status-right').textContent =
-          'WebGL · SDL2 · ' + new Date().getFullYear();
-      },
-
-      print:    function(t) { console.log('[game]', t); },
-      printErr: function(t) { console.error('[game]', t); },
-    };
-  </script>
+{{{ SCRIPT }}}
 
 </body>
 </html>

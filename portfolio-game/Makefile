@@ -1,64 +1,45 @@
-# ─────────────────────────────────────────────────────────────────────────────
-#  Portfolio Game – Emscripten / WebAssembly Build
+# ─── Zielony Pływak – Build Configuration ───────────────────────────────────
+# Requires: Emscripten SDK (emsdk) activated in your environment
 #
-#  Requirements:
-#    emscripten (emcc / em++ must be on PATH or sourced via emsdk_env.sh)
-#
-#  Usage:
-#    make            – debug build (fast iteration)
-#    make release    – optimised build
-#    make serve      – serve build/ on http://localhost:8080
-#    make clean      – remove build artefacts
-# ─────────────────────────────────────────────────────────────────────────────
+# Quick start:
+#   source /path/to/emsdk/emsdk_env.sh
+#   make
+#   # then open index.html via a local server (e.g. python3 -m http.server)
 
-CXX       := em++
-BUILD_DIR := build
-SRC       := src/main.cpp
-TARGET    := $(BUILD_DIR)/index.html
-SHELL_FILE:= shell.html
+SRC      = src/main.cpp
+OUT_DIR  = build
+OUT      = $(OUT_DIR)/game.js
+SHELL_HTML = shell.html
+FINAL    = $(OUT_DIR)/index.html
 
-# ── Emscripten flags shared by all builds ────────────────────────────────────
-EM_FLAGS := \
-  -s USE_SDL=2            \
-  -s WASM=1               \
-  -s ALLOW_MEMORY_GROWTH=1 \
-  -s MAX_WEBGL_VERSION=2   \
-  -s MIN_WEBGL_VERSION=2   \
-  -s ENVIRONMENT=web       \
-  --shell-file $(SHELL_FILE)
+CC       = emcc
+CFLAGS   = -std=c++17 -O2 -Wall -Wextra
+LDFLAGS  = -s USE_SDL=2 \
+           -s ALLOW_MEMORY_GROWTH=1 \
+           -s INITIAL_MEMORY=33554432 \
+           -s EXPORTED_RUNTIME_METHODS='["ccall","cwrap"]' \
+           -s NO_EXIT_RUNTIME=1 \
+           --shell-file $(SHELL_HTML)
 
-# ── Debug (default) ──────────────────────────────────────────────────────────
-CXXFLAGS_DEBUG := -std=c++17 -g -O0 \
-  -s ASSERTIONS=1          \
-  -s SAFE_HEAP=1
+.PHONY: all clean debug serve
 
-# ── Release ──────────────────────────────────────────────────────────────────
-CXXFLAGS_RELEASE := -std=c++17 -O3 \
-  -s ASSERTIONS=0           \
-  --closure 1
+all: $(FINAL)
 
-# ── Default target: debug ─────────────────────────────────────────────────────
-.PHONY: all debug release serve clean
+$(OUT_DIR):
+	mkdir -p $(OUT_DIR)
 
-all: debug
-
-debug: $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS_DEBUG) $(SRC) $(EM_FLAGS) -o $(TARGET)
+$(FINAL): $(SRC) $(SHELL_HTML) | $(OUT_DIR)
+	$(CC) $(CFLAGS) $(LDFLAGS) $(SRC) -o $(FINAL)
 	@echo ""
-	@echo "  ✓  Debug build ready → $(BUILD_DIR)/"
+	@echo "✓ Build complete! Files in $(OUT_DIR)/"
+	@echo "  Serve with: cd $(OUT_DIR) && python3 -m http.server 8080"
 
-release: $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS_RELEASE) $(SRC) $(EM_FLAGS) -o $(TARGET)
-	@echo ""
-	@echo "  ✓  Release build ready → $(BUILD_DIR)/"
-
-$(BUILD_DIR):
-	mkdir -p $@
-
-# ── Local dev server (requires Python 3) ─────────────────────────────────────
-serve:
-	@echo "Serving on http://localhost:8080"
-	cd $(BUILD_DIR) && python3 -m http.server 8080
+debug: CFLAGS = -std=c++17 -O0 -g -Wall -Wextra -DDEBUG
+debug: $(FINAL)
+	@echo "✓ Debug build complete"
 
 clean:
-	rm -rf $(BUILD_DIR)
+	rm -rf $(OUT_DIR)
+
+serve: $(FINAL)
+	cd $(OUT_DIR) && python3 -m http.server 8080
