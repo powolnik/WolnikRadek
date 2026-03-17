@@ -1,1 +1,7 @@
 tasklet*
+.aider*
+./emsdk
+.venv/*
+./.venv/DLLs/*
+emsdk/
+.env
