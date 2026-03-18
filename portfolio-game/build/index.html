@@ -1,1 +1,774 @@
-<!doctypehtml><html lang=en><head><meta charset=UTF-8><meta content="width=device-width,initial-scale=1"name=viewport><title>Zielony Pływak // Portfolio Game</title><style>*,::after,::before{box-sizing:border-box;margin:0;padding:0}:root{--bg:#08081a;--accent:#6060ff;--font:'Courier New',monospace}body,html{width:100%;height:100%;background:var(--bg);color:rgba(180,180,230,.85);font-family:var(--font);overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center}#canvas-wrap{position:relative;border:1px solid rgba(96,96,255,.35);border-radius:8px;overflow:hidden;box-shadow:0 0 60px rgba(60,60,200,.25),0 0 120px rgba(30,30,100,.18)}canvas.emscripten{display:block;background:var(--bg)}#loading{position:absolute;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:10;transition:opacity .6s ease}#loading.hidden{opacity:0;pointer-events:none}.load-title{font-size:14px;letter-spacing:.2em;color:rgba(96,96,255,.8)}.load-bar-wrap{width:260px;height:4px;background:rgba(96,96,255,.12);border-radius:2px;overflow:hidden}.load-bar{height:100%;width:0%;background:linear-gradient(90deg,#6060ff,#9060ff);border-radius:2px;transition:width .3s ease}.load-status{font-size:11px;color:rgba(120,120,200,.5);letter-spacing:.1em}#controls-bar{display:flex;align-items:center;justify-content:space-between;width:min(1280px,96vw);padding:10px 0;font-size:.55rem;letter-spacing:.12em;color:rgba(80,80,160,.5)}#controls-bar a{color:rgba(96,96,255,.6);text-decoration:none;transition:color .2s}#controls-bar a:hover{color:rgba(130,130,255,.9)}#fs-btn{position:absolute;top:8px;right:8px;background:rgba(10,10,30,.7);border:1px solid rgba(96,96,255,.3);color:rgba(160,160,220,.7);font-family:var(--font);font-size:11px;letter-spacing:.08em;padding:5px 12px;border-radius:4px;cursor:pointer;z-index:5;transition:background .2s,border-color .2s}#fs-btn:hover{background:rgba(50,50,180,.22);border-color:rgba(130,130,255,.8);color:#fff}</style></head><body><div id=canvas-wrap><div id=loading><div class=load-title>LOADING WASM...</div><div class=load-bar-wrap><div id=load-bar class=load-bar></div></div><div id=load-status class=load-status>initializing...</div></div><button id=fs-btn onclick=toggleFS()>[ fullscreen ]</button><canvas class=emscripten id=canvas oncontextmenu=event.preventDefault() tabindex=-1></canvas></div><div id=controls-bar><span>WASD / ←→ move  |  SPACE jump  |  E pickup  |  ESC pause</span> <a href=../index.html>[ ← back to portfolio ]</a> <span id=fps-counter>FPS —</span></div><script>var loadBar=document.getElementById("load-bar"),loadStatus=document.getElementById("load-status"),loadingOverlay=document.getElementById("loading"),Module={preRun:[],postRun:[function(){loadingOverlay.classList.add("hidden"),document.getElementById("canvas").focus()}],canvas:function(){var e=document.getElementById("canvas");return e.addEventListener("webglcontextlost",(function(e){alert("WebGL context lost. Please reload."),e.preventDefault()}),!1),e}(),setStatus:function(e){if(e){var t=e.match(/([^(]+)\((\d+(\.\d+)?)\/(\d+)\)/);if(t){var n=parseFloat(t[2])/parseFloat(t[4])*100;loadBar.style.width=n+"%",loadStatus.textContent=t[1].trim().toLowerCase()}else loadBar.style.width="100%",loadStatus.textContent=e.toLowerCase()}else loadingOverlay.classList.add("hidden")},totalDependencies:0,monitorRunDependencies:function(e){this.totalDependencies=Math.max(this.totalDependencies,e),Module.setStatus(e?"Preparing... ("+(this.totalDependencies-e)+"/"+this.totalDependencies+")":"")}};function toggleFS(){var e=document.getElementById("canvas-wrap");document.fullscreenElement?document.exitFullscreen():e.requestFullscreen().catch((function(){}))}Module.setStatus("Downloading..."),window.onerror=function(){Module.setStatus("Error — see console")}</script><script async src=index.js></script></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Radosław Wolnik – Portfolio</title>
+  <meta name="description" content="Junior Game Programmer specializing in Unreal Engine 5 & C++, based in Kraków, Poland."/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #08081a;
+      --accent:   #6060ff;
+      --accent2:  #9060ff;
+      --dim:      rgba(120,120,220,0.45);
+      --dimmer:   rgba(100,100,200,0.25);
+      --card-bg:  rgba(14,14,32,0.92);
+      --text:     rgba(210,210,240,0.9);
+      --muted:    rgba(160,160,210,0.5);
+      --font:     'Courier New', monospace;
+    }
+
+    html, body {
+      width: 100%; min-height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      overflow-x: hidden;
+    }
+
+    /* ── animated canvas background ───────────────────── */
+    #bg-canvas {
+      position: fixed;
+      inset: 0;
+      width: 100%; height: 100%;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    /* ── layout shell ──────────────────────────────────── */
+    #shell {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      visibility: hidden;
+    }
+
+    /* ── top bar ───────────────────────────────────────── */
+    #top-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 20px;
+      border-bottom: 1px solid rgba(96,96,255,0.18);
+      background: rgba(8,8,26,0.8);
+      backdrop-filter: blur(6px);
+      flex-shrink: 0;
+    }
+    .bar-logo {
+      font-size: 0.75rem;
+      font-weight: bold;
+      letter-spacing: 0.25em;
+      color: var(--accent);
+    }
+    .bar-hud {
+      display: flex;
+      gap: 18px;
+      font-size: 0.55rem;
+      letter-spacing: 0.12em;
+      color: var(--dimmer);
+    }
+    .bar-hud span { transition: color 0.3s; }
+
+    /* ── main content ──────────────────────────────────── */
+    #content {
+      flex: 1;
+      max-width: 900px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 48px 24px 64px;
+    }
+
+    /* ── hero ──────────────────────────────────────────── */
+    #hero {
+      margin-bottom: 52px;
+    }
+    .hero-tag {
+      font-size: 0.6rem;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--dim);
+      margin-bottom: 10px;
+    }
+    h1 {
+      font-size: clamp(1.6rem, 5vw, 2.8rem);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      background: linear-gradient(120deg, #a0a0ff 0%, #c080ff 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 10px;
+      line-height: 1.1;
+    }
+    .hero-subtitle {
+      font-size: 0.75rem;
+      letter-spacing: 0.18em;
+      color: var(--dim);
+      margin-bottom: 20px;
+    }
+    .hero-bio {
+      font-size: 0.72rem;
+      line-height: 1.85;
+      color: rgba(180,180,220,0.6);
+      max-width: 620px;
+      margin-bottom: 24px;
+    }
+    .hero-links {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+    .hero-links a {
+      font-size: 0.6rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: rgba(140,140,255,0.8);
+      text-decoration: none;
+      padding: 5px 12px;
+      border: 1px solid rgba(96,96,255,0.35);
+      border-radius: 3px;
+      transition: border-color 0.2s, color 0.2s, background 0.2s;
+    }
+    .hero-links a:hover {
+      border-color: var(--accent);
+      color: #fff;
+      background: rgba(96,96,255,0.12);
+    }
+
+    /* ── section header ────────────────────────────────── */
+    .section-label {
+      font-size: 0.58rem;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: var(--dim);
+      margin-bottom: 18px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .section-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: rgba(96,96,255,0.18);
+    }
+
+    /* ── projects grid ─────────────────────────────────── */
+    #projects {
+      margin-bottom: 52px;
+    }
+    .projects-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 16px;
+    }
+    .game-card {
+      display: block;
+      text-decoration: none;
+      background: var(--card-bg);
+      border: 1px solid rgba(96,96,255,0.22);
+      border-radius: 4px;
+      overflow: hidden;
+      transition: border-color 0.25s, transform 0.2s, box-shadow 0.25s;
+      cursor: pointer;
+    }
+    .game-card:hover {
+      border-color: var(--accent);
+      transform: translateY(-3px);
+      box-shadow: 0 8px 32px rgba(60,60,200,0.25);
+    }
+    .game-thumb {
+      width: 100%;
+      aspect-ratio: 315 / 250;
+      object-fit: cover;
+      display: block;
+      filter: saturate(0.8) brightness(0.85);
+      transition: filter 0.25s;
+    }
+    .game-card:hover .game-thumb {
+      filter: saturate(1) brightness(1);
+    }
+    .game-info {
+      padding: 12px 14px 14px;
+    }
+    .game-title {
+      font-size: 0.78rem;
+      font-weight: bold;
+      letter-spacing: 0.1em;
+      color: rgba(200,200,255,0.9);
+      margin-bottom: 5px;
+    }
+    .game-desc {
+      font-size: 0.62rem;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin-bottom: 8px;
+      line-height: 1.5;
+    }
+    .game-genre {
+      display: inline-block;
+      font-size: 0.52rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: rgba(120,120,255,0.7);
+      border: 1px solid rgba(96,96,255,0.3);
+      border-radius: 2px;
+      padding: 2px 7px;
+    }
+
+    /* ── artwork section ────────────────────────────────── */
+    #artwork { margin-bottom: 52px; }
+
+    /* ── skills ────────────────────────────────────────── */
+    #skills {
+      margin-bottom: 40px;
+    }
+    .skills-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .skill-chip {
+      font-size: 0.6rem;
+      letter-spacing: 0.14em;
+      padding: 4px 12px;
+      border: 1px solid rgba(96,96,255,0.28);
+      border-radius: 3px;
+      color: rgba(160,160,230,0.7);
+      background: rgba(20,20,50,0.5);
+    }
+
+    /* ── footer ────────────────────────────────────────── */
+    #footer {
+      border-top: 1px solid rgba(96,96,255,0.12);
+      padding: 14px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.55rem;
+      letter-spacing: 0.12em;
+      color: rgba(100,100,180,0.4);
+      background: rgba(8,8,26,0.7);
+    }
+    #frame-line, #time-line { transition: color 0.2s; }
+
+    /* ── responsive ────────────────────────────────────── */
+    @media (max-width: 520px) {
+      #content { padding: 32px 16px 48px; }
+      h1 { font-size: 1.5rem; }
+    }
+  
+/* ── Enter choice overlay ──────────────────────────────── */
+#enter-choice {
+  position: fixed; inset: 0; z-index: 999;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  background: rgba(5,5,18,0.95);
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.4s ease;
+}
+#enter-choice.visible { opacity: 1; pointer-events: all; }
+#enter-choice .ec-label {
+  font-family: 'Courier New', monospace;
+  color: rgba(160,160,220,0.55);
+  font-size: 12px; letter-spacing: 0.18em;
+  text-transform: uppercase; margin-bottom: 36px;
+}
+.enter-btn {
+  font-family: 'Courier New', monospace;
+  font-size: 14px; letter-spacing: 0.1em;
+  border: 1px solid rgba(96,96,255,0.4);
+  background: rgba(10,10,30,0.7);
+  color: #b0b0e0; cursor: pointer;
+  padding: 13px 44px; margin: 7px;
+  border-radius: 6px; min-width: 260px;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+.enter-btn:hover {
+  background: rgba(50,50,180,0.22);
+  border-color: rgba(130,130,255,0.85);
+  color: #ffffff;
+}
+</style>
+</head>
+<body>
+
+<!-- Animated dot-grid background -->
+<canvas id="bg-canvas"></canvas>
+
+<div id="shell">
+
+  <!-- Top bar -->
+  <div id="top-bar">
+    <span class="bar-logo">RW // PORTFOLIO</span>
+    <div class="bar-hud">
+      <span id="fps-line">FPS —</span>
+      <span id="time-line">T 0.000</span>
+      <span>C++ · UE5 · SDL2</span>
+    </div>
+  </div>
+
+  <!-- Main content -->
+  <div id="content">
+
+    <!-- Hero -->
+    <section id="hero">
+      <div class="hero-tag">&gt; init portfolio.exe</div>
+      <h1>Radosław Wolnik</h1>
+      <div class="hero-subtitle">Junior Game Programmer &nbsp;·&nbsp; Unreal Engine 5 &nbsp;·&nbsp; C++ &nbsp;·&nbsp; Kraków, Poland</div>
+      <p class="hero-bio">
+        I'm Radek — a game programmer focused on C++ and Unreal Engine 5.
+        I enjoy building deep game systems: ability frameworks, AI behaviours, player controllers, and multiplayer setups.
+        Outside of games I write Python tools for automation and AI-assisted development,
+        and I'm always looking for smarter ways to build things faster.
+        Currently working on an action RPG built on UE5's Gameplay Ability System,
+        a puzzle-collecting game, and a custom scripting toolkit for AI coding assistants.
+        Actively looking for opportunities to grow as a game developer and contribute to real teams.
+      </p>
+      <div class="hero-links">
+        <a href="https://github.com/powolnik" target="_blank" rel="noopener">github</a>
+        <a href="https://linkedin.com/in/rwolnik" target="_blank" rel="noopener">linkedin</a>
+        <a href="https://radoslawwolnik.itch.io/" target="_blank" rel="noopener">itch.io</a>
+        <a href="https://www.artstation.com/powolnik" target="_blank" rel="noopener">artstation</a>
+      </div>
+    </section>
+
+    <!-- Projects -->
+    <section id="projects">
+      <div class="section-label">// projects</div>
+      <div class="projects-grid">
+
+        <a class="game-card" href="https://radoslawwolnik.itch.io/toontankprototype" target="_blank" rel="noopener">
+          <img class="game-thumb"
+               src="https://img.itch.zone/aW1nLzEwOTUxNjE4LnBuZw==/315x250%23c/cF6JYR.png"
+               alt="ToonTankPrototype screenshot"
+               loading="lazy"/>
+          <div class="game-info">
+            <div class="game-title">ToonTankPrototype</div>
+            <div class="game-desc">Tank combat prototype built in Unreal Engine.</div>
+            <span class="game-genre">Action</span>
+          </div>
+        </a>
+
+        <a class="game-card" href="https://radoslawwolnik.itch.io/cr-game" target="_blank" rel="noopener">
+          <img class="game-thumb"
+               src="https://img.itch.zone/aW1nLzEwOTA2MjA3LnBuZw==/315x250%23c/eTsmg8.png"
+               alt="CryptRaide screenshot"
+               loading="lazy"/>
+          <div class="game-info">
+            <div class="game-title">CryptRaide</div>
+            <div class="game-desc">Puzzle-collecting game built entirely in C++.</div>
+            <span class="game-genre">Puzzle</span>
+          </div>
+        </a>
+
+        <a class="game-card" href="https://radoslawwolnik.itch.io/cubefieldremake" target="_blank" rel="noopener">
+          <img class="game-thumb"
+               src="https://img.itch.zone/aW1nLzEwNjYzMTcwLmpwZw==/315x250%23c/Ke4ol%2B.jpg"
+               alt="CubefieldRemake screenshot"
+               loading="lazy"/>
+          <div class="game-info">
+            <div class="game-title">CubefieldRemake</div>
+            <div class="game-desc">Steer the ship and don't crash.</div>
+            <span class="game-genre">Racing</span>
+          </div>
+        </a>
+
+      </div>
+    </section>
+
+    <!-- Artwork (ArtStation) -->
+    <section id="artwork">
+      <div class="section-label">// artwork &amp; devlogs</div>
+      <div class="projects-grid">
+
+        <a class="game-card" href="https://www.artstation.com/artwork/ZeAwoG" target="_blank" rel="noopener">
+          <img class="game-thumb"
+               src="https://cdna.artstation.com/p/assets/videos/images/057/976/078/smaller_square/radoslaw-wolnik-maxresdefault.jpg?1673104955"
+               alt="Gameplay Programming Reel UE5" loading="lazy"/>
+          <div class="game-info">
+            <div class="game-title">Gameplay Programming Reel UE5</div>
+            <div class="game-desc">Showcase reel of gameplay systems built in Unreal Engine 5.</div>
+            <span class="game-genre">Programming</span>
+          </div>
+        </a>
+
+        <a class="game-card" href="https://www.artstation.com/artwork/nE8qqo" target="_blank" rel="noopener">
+          <img class="game-thumb"
+               src="https://cdna.artstation.com/p/assets/videos/images/048/771/466/smaller_square/radoslaw-wolnik-maxresdefault.jpg?1650906995"
+               alt="Spline based tool for Unreal Engine 5" loading="lazy"/>
+          <div class="game-info">
+            <div class="game-title">Spline Tool – UE5</div>
+            <div class="game-desc">Custom spline-based placement tool ready to use in production.</div>
+            <span class="game-genre">Programming</span>
+          </div>
+        </a>
+
+        <a class="game-card" href="https://www.artstation.com/artwork/Jem2zR" target="_blank" rel="noopener">
+          <img class="game-thumb"
+               src="https://cdna.artstation.com/p/assets/videos/images/056/496/640/smaller_square/radoslaw-wolnik-hqdefault.jpg?1669384310"
+               alt="Chess game in UE5" loading="lazy"/>
+          <div class="game-info">
+            <div class="game-title">Chess Game – UE5</div>
+            <div class="game-desc">Fully functional chess game built in UE5 using Blueprints.</div>
+            <span class="game-genre">Blueprints</span>
+          </div>
+        </a>
+
+        <a class="game-card" href="https://www.artstation.com/artwork/yJXeYR" target="_blank" rel="noopener">
+          <img class="game-thumb"
+               src="https://cdna.artstation.com/p/assets/covers/images/048/773/880/smaller_square/radoslaw-wolnik-radoslaw-wolnik-highresscreenshot-2022-04-24-15-04-37.jpg?1650910535"
+               alt="UE5 Level – Bakery" loading="lazy"/>
+          <div class="game-info">
+            <div class="game-title">UE5 Level – Bakery</div>
+            <div class="game-desc">Atmospheric interior level design with realistic lighting.</div>
+            <span class="game-genre">Level Design</span>
+          </div>
+        </a>
+
+        <a class="game-card" href="https://www.artstation.com/artwork/Ze9RPN" target="_blank" rel="noopener">
+          <img class="game-thumb"
+               src="https://cdna.artstation.com/p/assets/covers/images/050/193/604/smaller_square/radoslaw-wolnik-radoslaw-wolnik-highresscreenshot-2022-06-02-adss.jpg?1654265972"
+               alt="House in the Woods (Stylized)" loading="lazy"/>
+          <div class="game-info">
+            <div class="game-title">House in the Woods</div>
+            <div class="game-desc">Stylized environment with custom shaders and foliage.</div>
+            <span class="game-genre">Level Design</span>
+          </div>
+        </a>
+
+        <a class="game-card" href="https://www.artstation.com/artwork/d03nKK" target="_blank" rel="noopener">
+          <img class="game-thumb"
+               src="https://cdnb.artstation.com/p/assets/covers/images/056/091/845/smaller_square/radoslaw-wolnik-radoslaw-wolnik-test1.jpg?1668447136"
+               alt="Cartoon Forest – Bachelor's project" loading="lazy"/>
+          <div class="game-info">
+            <div class="game-title">Cartoon Forest – UE4</div>
+            <div class="game-desc">Game level — Bachelor's degree final project.</div>
+            <span class="game-genre">Level Design</span>
+          </div>
+        </a>
+
+        <a class="game-card" href="https://www.artstation.com/artwork/yJqZvR" target="_blank" rel="noopener">
+          <img class="game-thumb"
+               src="https://cdna.artstation.com/p/assets/videos/images/050/197/906/smaller_square/radoslaw-wolnik-maxresdefault.jpg?1654273633"
+               alt="Robot rig and test animation" loading="lazy"/>
+          <div class="game-info">
+            <div class="game-title">Robot Rig &amp; Animation</div>
+            <div class="game-desc">Custom robot rig with test animation cycle.</div>
+            <span class="game-genre">Animation</span>
+          </div>
+        </a>
+
+        <a class="game-card" href="https://www.artstation.com/artwork/8woNoE" target="_blank" rel="noopener">
+          <img class="game-thumb"
+               src="https://cdna.artstation.com/p/assets/videos/images/048/812/996/smaller_square/radoslaw-wolnik-maxresdefault.jpg?1650996634"
+               alt="Hedgehog educational game – GAMEJAM" loading="lazy"/>
+          <div class="game-info">
+            <div class="game-title">Hedgehog Game – UE4</div>
+            <div class="game-desc">Educational game made during a game jam in UE4.</div>
+            <span class="game-genre">Game Jam</span>
+          </div>
+        </a>
+
+        <a class="game-card" href="https://www.artstation.com/artwork/g8b95Z" target="_blank" rel="noopener">
+          <img class="game-thumb"
+               src="https://cdna.artstation.com/p/assets/covers/images/056/264/830/smaller_square/radoslaw-wolnik-radoslaw-wolnik-cfsstest.jpg?1668819850"
+               alt="Cubefield remake in UE5 Blueprints" loading="lazy"/>
+          <div class="game-info">
+            <div class="game-title">Cubefield – UE5 Blueprints</div>
+            <div class="game-desc">Classic Cubefield recreated in Unreal Engine 5.</div>
+            <span class="game-genre">Blueprints</span>
+          </div>
+        </a>
+
+      </div>
+    </section>
+
+    <!-- Skills -->
+    <section id="skills">
+      <div class="section-label">// skills</div>
+      <div class="skills-list">
+        <span class="skill-chip">Unreal Engine 5</span>
+        <span class="skill-chip">Unreal Engine 4</span>
+        <span class="skill-chip">C++</span>
+        <span class="skill-chip">Gameplay Ability System</span>
+        <span class="skill-chip">Multiplayer / Networking</span>
+        <span class="skill-chip">Python</span>
+        <span class="skill-chip">Steam SDK</span>
+        <span class="skill-chip">Blueprints</span>
+        <span class="skill-chip">Shaders / Materials</span>
+        <span class="skill-chip">Level Design</span>
+        <span class="skill-chip">Sound Design</span>
+        <span class="skill-chip">Lumen &amp; Nanite</span>
+        <span class="skill-chip">Post Processing</span>
+        <span class="skill-chip">Animation / Rigging</span>
+        <span class="skill-chip">WebAssembly</span>
+      </div>
+    </section>
+
+  </div><!-- /content -->
+
+  <!-- Footer -->
+  <div id="footer">
+    <span>wolnikradek@gmail.com &nbsp;·&nbsp; github.com/powolnik</span>
+    <span id="frame-line">FRAME 0</span>
+    <span id="time-line-footer">T 0.000</span>
+  </div>
+
+</div><!-- /shell -->
+
+<!-- ═══════════════════ TERMINAL INTRO OVERLAY ═══════════════════ -->
+<div id="intro">
+  <div id="intro-inner">
+    <div id="intro-top-bar">
+      <span class="intro-dot" style="background:#ff5f57"></span>
+      <span class="intro-dot" style="background:#ffbd2e"></span>
+      <span class="intro-dot" style="background:#28c840"></span>
+      <span id="intro-title">portfolio.exe</span>
+    </div>
+    <div id="intro-body">
+      <div id="intro-lines"></div>
+      <span id="intro-cursor">█</span>
+    </div>
+    <div id="intro-skip">[ press any key or click to skip ]</div>
+  </div>
+</div>
+
+<style>
+  #intro {
+    position: fixed; inset: 0; z-index: 9999;
+    background: #05050f;
+    display: flex; align-items: center; justify-content: center;
+    transition: opacity 0.6s ease;
+  }
+  #intro.fade-out { opacity: 0; pointer-events: none; }
+
+  #intro-inner {
+    width: min(680px, 92vw);
+    background: #0a0a1e;
+    border: 1px solid rgba(96,96,255,0.35);
+    border-radius: 8px;
+    box-shadow: 0 0 60px rgba(60,60,200,0.25), 0 0 120px rgba(30,30,100,0.18);
+    overflow: hidden;
+    font-family: 'Courier New', monospace;
+  }
+
+  #intro-top-bar {
+    display: flex; align-items: center; gap: 7px;
+    padding: 10px 14px;
+    background: rgba(96,96,255,0.08);
+    border-bottom: 1px solid rgba(96,96,255,0.18);
+  }
+  .intro-dot { width:12px; height:12px; border-radius:50%; display:inline-block; }
+  #intro-title {
+    flex: 1; text-align: center;
+    font-size: 12px; color: rgba(160,160,210,0.6);
+    letter-spacing: 0.12em;
+  }
+
+  #intro-body {
+    padding: 24px 28px 12px;
+    min-height: 190px;
+    font-size: clamp(12px, 1.6vw, 14px);
+    line-height: 1.85;
+    color: rgba(180,180,230,0.85);
+  }
+
+  #intro-lines .line { display: block; white-space: pre; }
+  #intro-lines .line.cmd  { color: #8080ff; }
+  #intro-lines .line.ok   { color: #28c840; }
+  #intro-lines .line.info { color: rgba(160,160,220,0.65); }
+  #intro-lines .line.done { color: #ffffff; font-weight: bold; }
+
+  #intro-cursor {
+    display: inline-block; color: #6060ff;
+    animation: blink 0.75s step-end infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+  #intro-skip {
+    text-align: center;
+    padding: 10px 0 14px;
+    font-size: 11px;
+    color: rgba(100,100,180,0.5);
+    letter-spacing: 0.08em;
+    border-top: 1px solid rgba(96,96,255,0.1);
+    animation: pulse-skip 2s ease-in-out infinite;
+  }
+  @keyframes pulse-skip { 0%,100%{opacity:.4} 50%{opacity:1} }
+</style>
+
+<script>
+(function(){
+  const overlay  = document.getElementById('intro');
+  const linesEl  = document.getElementById('intro-lines');
+
+  const SEQ = [
+    { cls:'cmd',  text:'radek@portfolio:~$ ./portfolio.exe',                          pause:250,  type:true  },
+    { cls:'info', text:'Booting runtime engine...',                                   pause:325,  type:false },
+    { cls:'ok',   text:'[  OK  ]  Renderer initialised',                              pause:140,  type:false },
+    { cls:'ok',   text:'[  OK  ]  Game assets loaded',                                pause:260,  type:false },
+    { cls:'ok',   text:'[  OK  ]  Sections mounted: hero · games · artwork · skills', pause:150,  type:false },
+    { cls:'ok',   text:'[  OK  ]  Canvas backend active',                             pause:120,  type:false },
+    { cls:'cmd',  text:'radek@portfolio:~$ echo "Welcome."',                          pause:230,  type:true  },
+    { cls:'done', text:'Welcome.',                                                    pause:0,    type:false },
+  ];
+
+  let dismissed = false;
+  function dismiss() {
+    if (dismissed) return;
+    dismissed = true;
+    showEnterChoice();
+    overlay.classList.add('fade-out');
+    setTimeout(() => { try { overlay.remove(); } catch(e){} }, 650);
+  }
+
+  overlay.addEventListener('click', dismiss);
+  document.addEventListener('keydown', dismiss, { once: true });
+
+  function addLine(cls, text) {
+    const el = document.createElement('span');
+    el.className = 'line ' + cls;
+    el.textContent = text;
+    linesEl.appendChild(el);
+  }
+
+  function typeLine(cls, text, cb) {
+    const el = document.createElement('span');
+    el.className = 'line ' + cls;
+    el.textContent = '';
+    linesEl.appendChild(el);
+    let i = 0;
+    function tick() {
+      if (dismissed) { el.textContent = text; cb(); return; }
+      el.textContent = text.slice(0, ++i);
+      if (i < text.length) setTimeout(tick, 12); else cb();
+    }
+    tick();
+  }
+
+  let idx = 0;
+  function next() {
+    if (dismissed) return;
+    if (idx >= SEQ.length) { setTimeout(dismiss, 400); return; }
+    const item = SEQ[idx++];
+    setTimeout(() => {
+      if (dismissed) return;
+      if (item.type) {
+        typeLine(item.cls, item.text, next);
+      } else {
+        addLine(item.cls, item.text);
+        next();
+      }
+    }, item.pause);
+  }
+
+  setTimeout(next, 100);
+})();
+</script>
+
+<script>
+// ── Background canvas animation ───────────────────────────────────────────────
+const canvas = document.getElementById('bg-canvas');
+const ctx    = canvas.getContext('2d');
+
+let W = 0, H = 0;
+function resize() {
+  W = canvas.width  = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// Mouse for subtle parallax effect
+const mouse = { x: W / 2, y: H / 2 };
+window.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
+
+const fpsEl    = document.getElementById('fps-line');
+const timeEl   = document.getElementById('time-line');
+const frameEl  = document.getElementById('frame-line');
+const timeFtEl = document.getElementById('time-line-footer');
+
+let lastTs = null, totalTime = 0, frameCount = 0;
+let _fpsFrames = 0, _lastFpsTime = 0, fps = 0;
+
+function renderBg(t) {
+  // Full clear
+  ctx.clearRect(0, 0, W, H);
+
+  // Subtle radial glow near mouse
+  const gx = mouse.x, gy = mouse.y;
+  const grad = ctx.createRadialGradient(gx, gy, 0, gx, gy, Math.min(W, H) * 0.55);
+  grad.addColorStop(0,   'rgba(40,30,100,0.18)');
+  grad.addColorStop(1,   'rgba(8,8,26,0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  // Scrolling dot grid
+  const GRID   = 48;
+  const scroll = (t * 18) % GRID;
+  for (let y = -scroll; y < H + GRID; y += GRID) {
+    for (let x = -scroll; x < W + GRID; x += GRID) {
+      const dist  = Math.hypot(x - mouse.x, y - mouse.y);
+      const prox  = Math.max(0, 1 - dist / 320);
+      const pulse = 0.18 + 0.12 * Math.sin(t * 1.4 + (x + y) * 0.009) + prox * 0.3;
+      ctx.fillStyle = `rgba(60,80,180,${pulse})`;
+      ctx.fillRect(x + GRID / 2 - 1.5, y + GRID / 2 - 1.5, 3, 3);
+    }
+  }
+}
+
+function loop(ts) {
+  if (lastTs === null) lastTs = ts;
+  const dt = Math.min((ts - lastTs) / 1000, 0.05);
+  lastTs = ts;
+  totalTime  += dt;
+  frameCount += 1;
+
+  _fpsFrames++;
+  if (ts - _lastFpsTime >= 1000) {
+    fps = Math.round(_fpsFrames * 1000 / (ts - _lastFpsTime));
+    _fpsFrames = 0;
+    _lastFpsTime = ts;
+    fpsEl.textContent = `FPS  ${fps}`;
+  }
+
+  const ts_str = totalTime.toFixed(3);
+  timeEl.textContent   = `T  ${ts_str}`;
+  timeFtEl.textContent = `T  ${ts_str}`;
+  frameEl.textContent  = `FRAME  ${frameCount}`;
+
+  renderBg(totalTime);
+  requestAnimationFrame(loop);
+}
+
+requestAnimationFrame(loop);
+
+// ── Enter choice ──────────────────────────────────────────
+function showEnterChoice() {
+  const enterChoice = document.getElementById('enter-choice');
+  if (!enterChoice) return;
+  enterChoice.classList.add('visible');
+  document.getElementById('btn-portfolio').addEventListener('click', () => {
+    document.getElementById('shell').style.visibility = 'visible';
+    enterChoice.style.transition = 'opacity 0.3s ease';
+    enterChoice.style.opacity = '0';
+    setTimeout(() => { try { enterChoice.remove(); } catch(e){} }, 300);
+  });
+  document.getElementById('btn-game').addEventListener('click', () => {
+    window.location.href = 'portfolio-game/build/index.html';
+  });
+}
+</script>
+
+<div id="enter-choice">
+  <div class="ec-label">// select destination</div>
+  <button class="enter-btn" id="btn-portfolio">[ &#128193;  view portfolio ]</button>
+  <button class="enter-btn" id="btn-game">[ &#9654;  play game ]</button>
+</div>
+</body>
+</html>
