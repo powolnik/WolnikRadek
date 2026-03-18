@@ -186,7 +186,7 @@
 ### 5.3 — Ending cinematic
 - [x] Fade to black scripted sequence
 - [x] Text cards: 3–4 lines ("the island breathes", "the raft departs")
-- [ ] Ambient soundscape plays over cards
+- [x] Ambient soundscape plays over cards (wired — awaiting audio asset)
 - [x] Credits roll (scrolling text renderer)
 - [x] Return to main menu or desktop
 
@@ -196,19 +196,19 @@
 > ~1 week | Requires audio assets from composer
 
 ### 6.1 — Music
-- [ ] Ocean base layer (loops, plays from game start)
-- [ ] Zone 2 instrument layer adds at BI 20%
-- [ ] Zone 3 instrument layer adds at BI 40%
-- [ ] Zone 4 instrument layer adds at BI 60%
-- [ ] Zone 5 instrument layer adds at BI 80%
-- [ ] Ending cinematic track
+- [x] Ocean base layer (code wired — awaiting audio asset)
+- [x] Zone 2 instrument layer adds at BI 20% (code wired — awaiting audio asset)
+- [x] Zone 3 instrument layer adds at BI 40% (code wired — awaiting audio asset)
+- [x] Zone 4 instrument layer adds at BI 60% (code wired — awaiting audio asset)
+- [x] Zone 5 instrument layer adds at BI 80% (code wired — awaiting audio asset)
+- [x] Ending cinematic track (code wired — awaiting audio asset)
 
 ### 6.2 — SFX (~40 effects)
-- [ ] Footsteps: sand, water, grass, wood, stone
-- [ ] Pickup chime, recycle crunch, compost squelch
-- [ ] Animal calls: seagull, crab, turtle, hare, bee, deer, woodpecker, eagle
-- [ ] UI sounds: dialogue advance, atlas unlock, zone gate open
-- [ ] Mindfulness moment ambience loop
+- [x] Footsteps: sand, water, grass, wood, stone (code wired — awaiting audio assets)
+- [x] Pickup chime, recycle crunch, compost squelch (code wired — awaiting audio assets)
+- [x] Animal calls: seagull, crab, turtle, hare, bee, deer, woodpecker, eagle (code wired — awaiting audio assets)
+- [x] UI sounds: dialogue advance, atlas unlock, zone gate open (code wired — awaiting audio assets)
+- [x] Mindfulness moment ambience loop (code wired — awaiting audio asset)
 
 ---
 

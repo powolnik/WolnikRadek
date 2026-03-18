@@ -835,6 +835,7 @@ static void handleEvents() {
                     case SDL_SCANCODE_SPACE:
                         if (g.dialogueMgr.active) {
                             g.dialogueMgr.advance();
+                            playSFX("dialogue");  // Phase 6: dialogue tick
                             // Check if dialogue just ended — apply rewards
                             if (!g.dialogueMgr.active) {
                                 // Marta: after intro, set INTRO_DONE
@@ -1070,6 +1071,7 @@ static void updatePlaying(float dt) {
             g.trash[nearestIdx].collected = true;
             p.trashCollected++;
             p.pickupCooldown = 0.2f;
+            playSFX("pickup");  // Phase 6: pickup chime
             g.inv.addItem(lt);
 
             // Phase 3: favour tracking
@@ -1131,6 +1133,7 @@ static void updatePlaying(float dt) {
         g.popupMsg   = buf;
         g.popupTimer = 3.0f;
         spawnParticles({activeStation.x, activeStation.y}, {255, 215, 50, 255}, 20, 120.0f);
+        playSFX("recycle");  // Phase 6: recycle crunch
     }
 
     // Phase 2: Tool Library station — snap Y
@@ -1173,6 +1176,7 @@ static void updatePlaying(float dt) {
             if (g.inv.credits >= chosen.cost) {
                 g.inv.credits  -= chosen.cost;
                 g.inv.heldTool  = chosen.type;
+                playSFX("tool_borrow");  // Phase 6: borrow chime
                 char buf[128];
                 snprintf(buf, sizeof(buf), "Borrowed: %s  (-%d cr)", chosen.name, chosen.cost);
                 g.popupMsg   = buf;
@@ -1252,6 +1256,7 @@ static void updatePlaying(float dt) {
             g.popupMsg   = "Structure dismantled! +3 cr";
             g.popupTimer = 3.0f;
             spawnParticles({g.toolLib.x, g.toolLib.y}, {200, 180, 60, 255}, 25, 120.0f);
+            playSFX("dismantle");  // Phase 6: dismantle crack
         }
     } else {
         g.dismantleHoldTimer = 0.0f;
@@ -1297,18 +1302,24 @@ static void updatePlaying(float dt) {
         g.popupMsg   = "Crabs and seagulls return to the Beach!";
         g.popupTimer = 4.0f;
         spawnParticles({640, 400}, {60, 200, 80, 255}, 30, 100.0f);
+        playMusic("layer2");  // Phase 6: add shallows layer at BI 20%
+        playSFX("zone_open"); // Phase 6: zone milestone sting
     }
     if (!g.milestone40fired && g.ecoMeter >= 40.0f) {
         g.milestone40fired = true;
         g.popupMsg   = "Wildflowers bloom in the Meadow!";
         g.popupTimer = 4.0f;
         spawnParticles({640, 400}, {255, 180, 60, 255}, 30, 100.0f);
+        playMusic("layer3");  // Phase 6: add meadow layer at BI 40%
+        playSFX("zone_open"); // Phase 6: zone milestone sting
     }
     if (!g.milestone60fired && g.ecoMeter >= 60.0f) {
         g.milestone60fired = true;
         g.popupMsg   = "Birch leaves unfurl in the Forest!";
         g.popupTimer = 4.0f;
         spawnParticles({640, 400}, {80, 200, 60, 255}, 30, 100.0f);
+        playMusic("layer4");  // Phase 6: add forest layer at BI 60%
+        playSFX("zone_open"); // Phase 6: zone milestone sting
     }
     if (!g.milestone80fired && g.ecoMeter >= 80.0f) {
         g.milestone80fired = true;
@@ -1322,6 +1333,8 @@ static void updatePlaying(float dt) {
         g.popupMsg   = "A white-tailed eagle soars over the Hill!";
         g.popupTimer = 4.0f;
         spawnParticles({640, 400}, {200, 200, 255, 255}, 30, 100.0f);
+        playMusic("layer5");  // Phase 6: add hill layer at BI 80%
+        playSFX("zone_open"); // Phase 6: zone milestone sting
     }
     if (!g.milestone100fired && g.ecoMeter >= 100.0f) {
         g.milestone100fired = true;
@@ -1334,6 +1347,8 @@ static void updatePlaying(float dt) {
             g.cinematicTimer = 0.0f;
             g.cinematicFade  = 0.0f;
             g.creditsScrollY = 0.0f;
+            playSFX("win");      // Phase 6: win chime
+            playMusic("ending"); // Phase 6: ending cinematic track
         }
     }
     // Phase 5: win trigger (bi==100 AND structures cleared)
@@ -1345,6 +1360,8 @@ static void updatePlaying(float dt) {
         g.cinematicTimer = 0.0f;
         g.cinematicFade  = 0.0f;
         g.creditsScrollY = 0.0f;
+        playSFX("win");      // Phase 6: win chime
+        playMusic("ending"); // Phase 6: ending cinematic track
     }
 
     // Phase 4.3 — Mindfulness moment update
@@ -1352,6 +1369,7 @@ static void updatePlaying(float dt) {
         g.mindfulActive  = true;
         g.mindfulTimer   = 10.0f;
         g.mindfulOverlay = 0.0f;
+        playSFX("mindfulness");  // Phase 6: mindfulness ambience
     }
     if (g.mindfulActive) {
         // Fade in overlay
@@ -1390,6 +1408,7 @@ static void updatePlaying(float dt) {
                 bool already = g.atlas.entries[(int)sid].photographed;
                 g.atlas.photograph(sid);
                 if (!already) {
+                    playSFX("atlas_unlock");  // Phase 6: species photographed
                     g.popupMsg   = std::string("Photographed: ") + SPECIES_NAMES[(int)sid];
                     g.popupTimer = 3.0f;
                     spawnParticles(a.pos, {255, 255, 100, 255}, 15, 80.0f);
@@ -2661,6 +2680,9 @@ int main() {
     SDL_SetRenderDrawBlendMode(g.renderer, SDL_BLENDMODE_BLEND);
     g.lastTick = SDL_GetTicks();
 
+    initAudio();           // Phase 6: bring up audio system
+    playMusic("base");     // Phase 6: ocean base layer plays from start
+
 #ifdef __EMSCRIPTEN__
     emscripten_set_main_loop(mainLoopCallback, 0, 1);
 #else
@@ -2671,6 +2693,7 @@ int main() {
     }
 #endif
 
+    cleanupAudio();          // Phase 6: free audio resources
     SDL_DestroyRenderer(g.renderer);
     SDL_DestroyWindow(g.window);
     SDL_Quit();
