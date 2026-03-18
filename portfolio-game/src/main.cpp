@@ -38,6 +38,7 @@
 #include "economy.h"
 #include "dialogue.h"
 #include "npc.h"
+#include "atlas.h"
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -196,6 +197,8 @@ struct GameState {
         bool enterPressed = false;
         bool returnPressed = false;  // R key — return tool
         bool photoPressed = false;   // F key — drone photo
+        bool mindfulPressed = false; // M key — mindfulness moment
+        bool atlasPressed = false;   // Tab key — atlas UI
     } input;
 
     // Scene
@@ -301,6 +304,24 @@ struct GameState {
     float creditsPopupTimer = 0;
     // Tool return key
     bool  returnToolPressed = false;
+
+    // Phase 4.1 — Colour shift (0=desaturated, 1=full colour) per zone
+    float zoneColourT[5] = {0.2f, 0.2f, 0.2f, 0.2f, 0.2f};
+
+    // Phase 4.3 — Mindfulness moment
+    bool  mindfulActive = false;
+    float mindfulTimer  = 0.0f;      // counts down from 10
+    float mindfulOverlay = 0.0f;     // 0..1 fade
+
+    // Phase 4.4 — Wildlife Photo Atlas
+    WildlifeAtlas atlas;
+
+    // Phase 4.2 — BI milestone events (one-shot flags)
+    bool milestone20fired = false;
+    bool milestone40fired = false;
+    bool milestone60fired = false;
+    bool milestone80fired = false;
+    bool milestone100fired = false;
 
     // Menu
     int menuSelection = 0;
@@ -776,6 +797,10 @@ static void handleEvents() {
     g.input.actionPressed = false;
     g.input.pausePressed = false;
     g.input.enterPressed = false;
+    g.input.returnPressed = false;
+    g.input.photoPressed = false;
+    g.input.mindfulPressed = false;
+    g.input.atlasPressed = false;
 
     SDL_Event e;
     while (SDL_PollEvent(&e)) {
@@ -849,6 +874,12 @@ static void handleEvents() {
                         break;
                     case SDL_SCANCODE_F:
                         g.input.photoPressed = true;
+                        break;
+                    case SDL_SCANCODE_M:
+                        g.input.mindfulPressed = true;
+                        break;
+                    case SDL_SCANCODE_TAB:
+                        g.input.atlasPressed = true;
                         break;
                     default: break;
                 }
@@ -1207,6 +1238,125 @@ static void updatePlaying(float dt) {
         if (g.ecoMeter > g.targetEco) g.ecoMeter = g.targetEco;
     }
 
+    // Phase 4.1 — Colour shift: tween current zone towards 1.0 based on zone progress
+    {
+        float zoneBase = ZONE_BI_THRESHOLDS[g.currentZoneIdx] * 100.0f;
+        float zoneCap  = (g.currentZoneIdx < NUM_ZONES - 1)
+                         ? ZONE_BI_THRESHOLDS[g.currentZoneIdx + 1] * 100.0f
+                         : 100.0f;
+        float zoneRange = zoneCap - zoneBase;
+        float zoneProgress = (zoneRange > 0)
+                             ? std::min(1.0f, (g.ecoMeter - zoneBase) / zoneRange)
+                             : 1.0f;
+        float targetT = 0.2f + zoneProgress * 0.8f; // 0.2 at start → 1.0 at zone complete
+        if (g.zoneColourT[g.currentZoneIdx] < targetT)
+            g.zoneColourT[g.currentZoneIdx] += dt * 0.3f;
+        if (g.zoneColourT[g.currentZoneIdx] > targetT)
+            g.zoneColourT[g.currentZoneIdx] = targetT;
+    }
+
+    // Phase 4.2 — BI milestone triggers (one-shot)
+    if (!g.milestone20fired && g.ecoMeter >= 20.0f) {
+        g.milestone20fired = true;
+        // Crabs + seagulls appear on Beach — spawn extra animals
+        Animal extra;
+        extra.pos = {600.0f, 660.0f}; extra.type = AnimalType::CRAB;
+        extra.requiredEco = 0; extra.spawned = true;
+        extra.animPhase = randf(0, 6.28f); extra.moveTimer = randf(1,3);
+        g.animals.push_back(extra);
+        extra.pos = {900.0f, 640.0f}; extra.type = AnimalType::BIRD;
+        g.animals.push_back(extra);
+        g.popupMsg   = "Crabs and seagulls return to the Beach!";
+        g.popupTimer = 4.0f;
+        spawnParticles({640, 400}, {60, 200, 80, 255}, 30, 100.0f);
+    }
+    if (!g.milestone40fired && g.ecoMeter >= 40.0f) {
+        g.milestone40fired = true;
+        g.popupMsg   = "Wildflowers bloom in the Meadow!";
+        g.popupTimer = 4.0f;
+        spawnParticles({640, 400}, {255, 180, 60, 255}, 30, 100.0f);
+    }
+    if (!g.milestone60fired && g.ecoMeter >= 60.0f) {
+        g.milestone60fired = true;
+        g.popupMsg   = "Birch leaves unfurl in the Forest!";
+        g.popupTimer = 4.0f;
+        spawnParticles({640, 400}, {80, 200, 60, 255}, 30, 100.0f);
+    }
+    if (!g.milestone80fired && g.ecoMeter >= 80.0f) {
+        g.milestone80fired = true;
+        // Eagle circles over Hill
+        Animal eagle;
+        eagle.pos = {1920.0f, 300.0f}; eagle.type = AnimalType::BIRD;
+        eagle.requiredEco = 0; eagle.spawned = true;
+        eagle.animPhase = randf(0, 6.28f); eagle.moveTimer = randf(1,3);
+        eagle.moveDir = {60.0f, 0.0f};
+        g.animals.push_back(eagle);
+        g.popupMsg   = "A white-tailed eagle soars over the Hill!";
+        g.popupTimer = 4.0f;
+        spawnParticles({640, 400}, {200, 200, 255, 255}, 30, 100.0f);
+    }
+    if (!g.milestone100fired && g.ecoMeter >= 100.0f) {
+        g.milestone100fired = true;
+        g.popupMsg   = "The island breathes again! Full restoration!";
+        g.popupTimer = 6.0f;
+        spawnParticles({640, 360}, {255, 215, 60, 255}, 60, 140.0f);
+    }
+
+    // Phase 4.3 — Mindfulness moment update
+    if (g.input.mindfulPressed && !g.mindfulActive && !g.dialogueMgr.active) {
+        g.mindfulActive  = true;
+        g.mindfulTimer   = 10.0f;
+        g.mindfulOverlay = 0.0f;
+    }
+    if (g.mindfulActive) {
+        // Fade in overlay
+        if (g.mindfulOverlay < 0.85f)
+            g.mindfulOverlay += dt * 1.5f;
+        g.mindfulTimer -= dt;
+        // Any key press (except M) exits early — handled by checking any action
+        bool anyKey = g.input.actionPressed || g.input.jumpPressed ||
+                      g.input.pausePressed || g.input.enterPressed;
+        if (g.mindfulTimer <= 0.0f || anyKey) {
+            g.mindfulActive  = false;
+            g.mindfulOverlay = 0.0f;
+        }
+    }
+
+    // Phase 4.4 — Atlas: toggle UI
+    if (g.input.atlasPressed) {
+        g.atlas.uiOpen = !g.atlas.uiOpen;
+    }
+    // Atlas: photo action [F] — Drone camera required, animal within range
+    if (g.input.photoPressed && g.inv.heldTool == ToolType::DRONE_CAMERA) {
+        float photoRange = 200.0f;
+        for (auto& a : g.animals) {
+            if (!a.spawned) continue;
+            float dist = (a.pos - g.player.pos).len();
+            if (dist < photoRange) {
+                // Map AnimalType to SpeciesID
+                SpeciesID sid = SpeciesID::CRAB;
+                switch (a.type) {
+                    case AnimalType::CRAB:  sid = SpeciesID::CRAB; break;
+                    case AnimalType::BIRD:  sid = SpeciesID::BIRD; break;
+                    case AnimalType::DEER:  sid = SpeciesID::DEER; break;
+                    case AnimalType::FROG:  sid = SpeciesID::FROG; break;
+                    case AnimalType::FISH:  sid = SpeciesID::FISH; break;
+                }
+                bool already = g.atlas.entries[(int)sid].photographed;
+                g.atlas.photograph(sid);
+                if (!already) {
+                    g.popupMsg   = std::string("Photographed: ") + SPECIES_NAMES[(int)sid];
+                    g.popupTimer = 3.0f;
+                    spawnParticles(a.pos, {255, 255, 100, 255}, 15, 80.0f);
+                }
+                break;
+            }
+        }
+    } else if (g.input.photoPressed && g.inv.heldTool != ToolType::DRONE_CAMERA) {
+        g.popupMsg   = "Need Drone Camera to photograph wildlife!";
+        g.popupTimer = 2.5f;
+    }
+
     // Update animals (spawn if eco is high enough, wander around)
     for (auto& a : g.animals) {
         a.animPhase += dt * 2.0f;
@@ -1324,9 +1474,15 @@ static void drawSky() {
     for (int y = 0; y < WINDOW_H; y++) {
         float t = (float)y / (float)WINDOW_H;
         Color c = lerpColor(COL_SKY_TOP, COL_SKY_BOT, t);
-        // Slight green tint as eco improves
+        // Slight green tint as eco improves; zone colour shift desaturates sky at low BI
         float eco01 = g.ecoMeter / 100.0f;
         c.g = (Uint8)std::min(255.0f, c.g + eco01 * 20.0f);
+        float ct = g.zoneColourT[g.currentZoneIdx];
+        // At low ct, pull r/g/b towards grey (desaturate)
+        Uint8 grey = (Uint8)((c.r * 0.299f + c.g * 0.587f + c.b * 0.114f));
+        c.r = (Uint8)(grey + (c.r - grey) * ct);
+        c.g = (Uint8)(grey + (c.g - grey) * ct);
+        c.b = (Uint8)(grey + (c.b - grey) * ct);
         setColor(c);
         SDL_RenderDrawLine(g.renderer, 0, y, WINDOW_W, y);
     }
@@ -2272,6 +2428,36 @@ static void render() {
             drawWin();
             break;
     }
+
+    // Phase 4.3 — Mindfulness overlay
+    if (g.mindfulActive) {
+        SDL_SetRenderDrawBlendMode(g.renderer, SDL_BLENDMODE_BLEND);
+        Uint8 oa = (Uint8)(g.mindfulOverlay * 200);
+        SDL_SetRenderDrawColor(g.renderer, 6, 10, 20, oa);
+        SDL_Rect overlay = {0, 0, WINDOW_W, WINDOW_H};
+        SDL_RenderFillRect(g.renderer, &overlay);
+        // Breathing circle
+        float breathe = 0.5f + 0.5f * std::sin(g.totalTime * 0.5f);
+        int radius = (int)(60 + breathe * 40);
+        SDL_SetRenderDrawColor(g.renderer, 60, 200, 80, (Uint8)(80 + breathe * 80));
+        for (int dy = -radius; dy <= radius; dy++) {
+            int dx2 = (int)std::sqrt((float)(radius*radius - dy*dy));
+            SDL_RenderDrawLine(g.renderer,
+                WINDOW_W/2 - dx2, WINDOW_H/2 + dy,
+                WINDOW_W/2 + dx2, WINDOW_H/2 + dy);
+        }
+        // Timer bar at bottom
+        float frac = g.mindfulTimer / 10.0f;
+        SDL_SetRenderDrawColor(g.renderer, 30, 80, 40, 180);
+        SDL_Rect tb = {40, WINDOW_H - 50, WINDOW_W - 80, 16};
+        SDL_RenderFillRect(g.renderer, &tb);
+        SDL_SetRenderDrawColor(g.renderer, 60, 200, 80, 220);
+        SDL_Rect tf = {40, WINDOW_H - 50, (int)((WINDOW_W - 80) * frac), 16};
+        SDL_RenderFillRect(g.renderer, &tf);
+    }
+
+    // Phase 4.4 — Atlas overlay
+    g.atlas.render(g.renderer, WINDOW_W, WINDOW_H);
 
     SDL_RenderPresent(g.renderer);
 }
