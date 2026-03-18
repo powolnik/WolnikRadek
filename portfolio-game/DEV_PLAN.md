@@ -146,28 +146,28 @@
 > ~2 weeks | Goal: island visually heals as BI rises
 
 ### 4.1 — Colour shift system
-- [ ] Each zone starts desaturated (apply SDL greyscale tint to tiles)
-- [ ] On cleanup events: smooth hue-saturation tween to full colour
-- [ ] Per-zone colour state saved in `Zone` struct
+- [x] Each zone starts desaturated (apply SDL greyscale tint to tiles)
+- [x] On cleanup events: smooth hue-saturation tween to full colour
+- [x] Per-zone colour state saved in `Zone` struct
 
 ### 4.2 — BI milestone triggers
-- [ ] BI 20%: crabs + seagulls appear on Beach, ambient crab sounds
-- [ ] BI 40%: wildflower tiles replace barren grass in Meadow, bee ambience
-- [ ] BI 60%: birch leaf tiles fully rendered, deer track decals appear
-- [ ] BI 80%: eagle circle animation plays over Hill zone, music layer 4 adds
-- [ ] BI 100%: win condition check → trigger ending sequence
+- [x] BI 20%: crabs + seagulls appear on Beach, ambient crab sounds
+- [x] BI 40%: wildflower tiles replace barren grass in Meadow, bee ambience
+- [x] BI 60%: birch leaf tiles fully rendered, deer track decals appear
+- [x] BI 80%: eagle circle animation plays over Hill zone, music layer 4 adds
+- [x] BI 100%: win condition check → trigger ending sequence
 
 ### 4.3 — Mindfulness moment [M]
-- [ ] Press [M] anywhere → 10-second ambient pause
-- [ ] Black overlay fades in, ambient sound plays (waves/wind/birdsong)
-- [ ] Energy/stamina fully restores after pause
-- [ ] Press any key to exit early
+- [x] Press [M] anywhere → 10-second ambient pause
+- [x] Black overlay fades in, ambient sound plays (waves/wind/birdsong)
+- [x] Energy/stamina fully restores after pause
+- [x] Press any key to exit early
 
 ### 4.4 — Wildlife Photo Atlas
-- [ ] `Atlas` struct: one entry per species, `photographed` bool
-- [ ] Drone camera tool enables [F] photo action near wildlife
-- [ ] Atlas UI screen accessible from HUD ([Tab])
-- [ ] Atlas entry: species name, silhouette → full sprite when photographed
+- [x] `Atlas` struct: one entry per species, `photographed` bool
+- [x] Drone camera tool enables [F] photo action near wildlife
+- [x] Atlas UI screen accessible from HUD ([Tab])
+- [x] Atlas entry: species name, silhouette → full sprite when photographed
 
 ---
 
