@@ -6,7 +6,7 @@
 #   make
 #   # then open index.html via a local server (e.g. python3 -m http.server)
 
-SRC        = src/main.cpp src/spritesheet.cpp
+SRC        = src/main.cpp src/spritesheet.cpp src/audio.cpp
 OUT_DIR    = build
 OUT        = $(OUT_DIR)/game.js
 SHELL_HTML = shell.html

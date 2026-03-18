@@ -25,26 +25,26 @@
 > ~1–2 weeks | Goal: solid base before expanding
 
 ### 0.1 — Replace procedural terrain with hand-crafted zones
-- [ ] Define tile map data structure (layer arrays or JSON)
-- [ ] Draw Beach zone tilemap (15 screens wide target)
-- [ ] Replace runtime terrain gen with tilemap renderer in SDL2
-- [ ] Verify camera scroll across full zone width
+- [x] Define tile map data structure (layer arrays or JSON)
+- [x] Draw Beach zone tilemap (15 screens wide target)
+- [x] Replace runtime terrain gen with tilemap renderer in SDL2
+- [x] Verify camera scroll across full zone width
 
 ### 0.2 — Art pipeline setup
-- [ ] Agree on sprite sheet format (16×16 tiles, PNG with transparency)
-- [ ] Write SDL2 sprite sheet loader (`loadTilesheet`, `drawTile`)
-- [ ] Write animation system: frame index + frame timer per entity
-- [ ] Test with placeholder 16×16 player sprite (4-frame idle, 6-frame walk, 3-frame pickup)
+- [x] Agree on sprite sheet format (16×16 tiles, PNG with transparency)
+- [x] Write SDL2 sprite sheet loader (`loadTilesheet`, `drawTile`)
+- [x] Write animation system: frame index + frame timer per entity
+- [x] Test with placeholder 16×16 player sprite (4-frame idle, 6-frame walk, 3-frame pickup)
 
 ### 0.3 — Code architecture refactor
-- [ ] Split `main.cpp` into modules: `game.cpp`, `player.cpp`, `zone.cpp`, `hud.cpp`, `entity.cpp`
-- [ ] Define `Zone` struct: tilemap, litter list, wildlife slots, BI unlock threshold
-- [ ] Define `Entity` base class: position, sprite, update(), draw()
+- [x] Split `main.cpp` into modules: `game.cpp`, `player.cpp`, `zone.cpp`, `hud.cpp`, `entity.cpp`
+- [x] Define `Zone` struct: tilemap, litter list, wildlife slots, BI unlock threshold
+- [x] Define `Entity` base class: position, sprite, update(), draw()
 
 ### 0.4 — SDL2_mixer integration (audio scaffolding)
-- [ ] Add `SDL2_mixer` to Makefile / Emscripten flags
-- [ ] Write `AudioManager`: load, play, stop, set volume
-- [ ] Add placeholder audio slots: `sfx_pickup`, `sfx_recycle`, `music_base`
+- [x] Add `SDL2_mixer` to Makefile / Emscripten flags
+- [x] Write `AudioManager`: load, play, stop, set volume
+- [x] Add placeholder audio slots: `sfx_pickup`, `sfx_recycle`, `music_base`
 
 ---
 
@@ -52,33 +52,33 @@
 > ~3–4 weeks | Goal: walkable island, all zones accessible via BI gates
 
 ### 1.1 — Zone 2: Shallows (unlock at BI 20%)
-- [ ] Tilemap: tidal pool terrain, water surface tiles
-- [ ] Litter set: 8–12 oil spill patch objects
-- [ ] Wildlife slots: Sea turtle, Starfish
-- [ ] Zone transition trigger (right edge of Beach → Shallows)
+- [x] Tilemap: tidal pool terrain, water surface tiles
+- [x] Litter set: 8–12 oil spill patch objects
+- [x] Wildlife slots: Sea turtle, Starfish
+- [x] Zone transition trigger (right edge of Beach → Shallows)
 
 ### 1.2 — Zone 3: Meadow (unlock at BI 40%)
-- [ ] Tilemap: coastal grass, flat with scattered rocks
-- [ ] Litter set: 8–12 chemical drum objects
-- [ ] Wildlife slots: Hare, Bee colony
+- [x] Tilemap: coastal grass, flat with scattered rocks
+- [x] Litter set: 8–12 chemical drum objects
+- [x] Wildlife slots: Hare, Bee colony
 - [ ] Wildflower bloom visual trigger at BI 40%
 
 ### 1.3 — Zone 4: Forest (unlock at BI 60%)
-- [ ] Tilemap: birch grove, varied elevation
-- [ ] Litter set: 8–12 abandoned machinery objects
-- [ ] Wildlife slots: Deer, Woodpecker
+- [x] Tilemap: birch grove, varied elevation
+- [x] Litter set: 8–12 abandoned machinery objects
+- [x] Wildlife slots: Deer, Woodpecker
 - [ ] Birch leaves render fully at BI 60%
 
 ### 1.4 — Zone 5: Hill (unlock at BI 80%)
-- [ ] Tilemap: rocky summit, narrow paths
-- [ ] Litter set: old broadcast tower + surrounding debris
-- [ ] Wildlife slots: Eagle, Lichen moss
+- [x] Tilemap: rocky summit, narrow paths
+- [x] Litter set: old broadcast tower + surrounding debris
+- [x] Wildlife slots: Eagle, Lichen moss
 - [ ] Eagle circle overhead animation at BI 80%
 
 ### 1.5 — Zone gate system
-- [ ] BI threshold check before allowing zone entry
-- [ ] Visual indicator on zone border (locked/unlocked state)
-- [ ] Smooth camera transition between zones
+- [x] BI threshold check before allowing zone entry
+- [x] Visual indicator on zone border (locked/unlocked state)
+- [x] Smooth camera transition between zones
 
 ---
 

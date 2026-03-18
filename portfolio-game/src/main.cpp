@@ -27,8 +27,14 @@
 // CHANGED: TileMap system replacing procedural terrain
 #include "zone.h"
 #include "zones/beach.h"
+#include "zones/shallows.h"
+#include "zones/meadow.h"
+#include "zones/forest.h"
+#include "zones/hill.h"
 #include "spritesheet.h"
 #include "animation.h"
+#include "entity.h"
+#include "audio.h"
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -42,6 +48,16 @@ constexpr float PICKUP_RANGE  = 48.0f;
 // CHANGED: world now matches Beach tilemap dimensions (240×45 tiles × 16px)
 constexpr int   WORLD_W       = 3840; // 240 tiles × 16px
 constexpr int   WORLD_H       = 720;  // 45 tiles × 16px (1 viewport tall)
+
+static constexpr int   NUM_ZONES = 5;
+static constexpr float ZONE_BI_THRESHOLDS[NUM_ZONES] = { 0.0f, 0.20f, 0.40f, 0.60f, 0.80f };
+static const char*     ZONE_DISPLAY_NAMES[NUM_ZONES]  = {
+    "~ THE BEACH ~", "~ THE SHALLOWS ~", "~ THE MEADOW ~",
+    "~ THE FOREST ~", "~ THE HILL ~"
+};
+// Colours used for zone gate line (locked vs unlocked)
+static const Color COL_GATE_LOCKED   = {180,  60,  60, 220};
+static const Color COL_GATE_UNLOCKED = { 60, 180,  80, 220};
 
 // Zone boundaries (world X coords)
 constexpr int ZONE_BEACH_START   = 0;
@@ -193,6 +209,14 @@ struct GameState {
 
     // CHANGED: TileMap-based terrain (replaces procedural heightmap)
     TileMap currentZoneMap;
+
+    // Zone management (Phase 1)
+    TileMap  allZones[NUM_ZONES];       // preloaded at startup
+    int      currentZoneIdx = 0;
+    float    flashMsgTimer  = 0;        // for "Need X% BI" block message
+    std::string flashMsg;               // block message text (unused visually yet, stored)
+    bool     zoneTransitioning = false; // brief input-disable after zone switch
+    float    zoneTransitionTimer = 0;
 
     // Player sprite sheet (loaded from PNG or placeholder at runtime)
     SpriteSheet playerSheet;
@@ -418,11 +442,168 @@ static SDL_Texture* createPlaceholderPlayerSheet(SDL_Renderer* renderer) {
     return tex;
 }
 
+// Returns approximate ground Y pixel for a tilemap column
+static int getTilemapGroundY(const TileMap& map, int pixelX) {
+    int col = pixelX / map.tileSize;
+    if (col < 0) col = 0;
+    if (col >= map.widthInTiles) col = map.widthInTiles - 1;
+    for (int row = 0; row < map.heightInTiles; ++row) {
+        if (map.tiles[row][col].solid) {
+            return row * map.tileSize;  // top pixel of first solid tile
+        }
+    }
+    return map.heightInTiles * map.tileSize; // fallback: bottom
+}
+
+static void generateZoneTrash(int zoneIdx) {
+    g.trash.clear();
+
+    // Number of trash items per zone and their types
+    struct TrashSpec { float minX, maxX; TrashType type; bool water; };
+    std::vector<TrashSpec> specs;
+
+    const TileMap& zmap = g.allZones[zoneIdx];
+
+    switch (zoneIdx) {
+        case 0: // Beach
+            specs = {
+                {100,  500, TrashType::BOTTLE, false},
+                {100,  500, TrashType::BOTTLE, false},
+                {100,  500, TrashType::BOTTLE, false},
+                {100,  500, TrashType::BOTTLE, false},
+                {100,  500, TrashType::BOTTLE, false},
+                {500, 1200, TrashType::CAN, false},
+                {500, 1200, TrashType::CAN, false},
+                {500, 1200, TrashType::CAN, false},
+                {500, 1200, TrashType::CAN, false},
+                {500, 1200, TrashType::CAN, false},
+                {800, 2000, TrashType::BAG, false},
+                {800, 2000, TrashType::BAG, false},
+                {800, 2000, TrashType::BAG, false},
+                {800, 2000, TrashType::BAG, false},
+                {800, 2000, TrashType::BAG, false},
+            };
+            break;
+        case 1: // Shallows
+            specs = {
+                {200, 600, TrashType::BARREL, true},
+                {200, 600, TrashType::BARREL, true},
+                {200, 600, TrashType::BARREL, true},
+                {600, 1200, TrashType::BOTTLE, true},
+                {600, 1200, TrashType::BOTTLE, true},
+                {600, 1200, TrashType::BOTTLE, true},
+                {1200, 2000, TrashType::CAN, false},
+                {1200, 2000, TrashType::CAN, false},
+                {1200, 2000, TrashType::CAN, false},
+                {2000, 3000, TrashType::BAG, false},
+                {2000, 3000, TrashType::BAG, false},
+                {2000, 3000, TrashType::BAG, false},
+            };
+            break;
+        case 2: // Meadow
+            specs = {
+                {100, 800, TrashType::BARREL, false},
+                {100, 800, TrashType::BARREL, false},
+                {100, 800, TrashType::BARREL, false},
+                {800, 1500, TrashType::CAN, false},
+                {800, 1500, TrashType::CAN, false},
+                {800, 1500, TrashType::CAN, false},
+                {1500, 2500, TrashType::BAG, false},
+                {1500, 2500, TrashType::BAG, false},
+                {1500, 2500, TrashType::BAG, false},
+                {2500, 3500, TrashType::BOTTLE, false},
+                {2500, 3500, TrashType::BOTTLE, false},
+                {2500, 3500, TrashType::BOTTLE, false},
+            };
+            break;
+        case 3: // Forest
+            specs = {
+                {200,  800, TrashType::TIRE, false},
+                {200,  800, TrashType::TIRE, false},
+                {200,  800, TrashType::TIRE, false},
+                {800, 1600, TrashType::BARREL, false},
+                {800, 1600, TrashType::BARREL, false},
+                {800, 1600, TrashType::BARREL, false},
+                {1600, 2500, TrashType::CAN, false},
+                {1600, 2500, TrashType::CAN, false},
+                {1600, 2500, TrashType::CAN, false},
+                {2500, 3500, TrashType::BAG, false},
+                {2500, 3500, TrashType::BAG, false},
+                {2500, 3500, TrashType::BAG, false},
+            };
+            break;
+        case 4: // Hill
+            specs = {
+                {300, 900, TrashType::TIRE, false},
+                {300, 900, TrashType::TIRE, false},
+                {900, 1800, TrashType::BARREL, false},
+                {900, 1800, TrashType::BARREL, false},
+                {1800, 2800, TrashType::TIRE, false},
+                {1800, 2800, TrashType::TIRE, false},
+                {2800, 3500, TrashType::CAN, false},
+                {2800, 3500, TrashType::CAN, false},
+                {2800, 3500, TrashType::BAG, false},
+            };
+            break;
+    }
+
+    for (auto& spec : specs) {
+        TrashItem item;
+        item.pos.x = randf(spec.minX, spec.maxX);
+        int gy = getTilemapGroundY(zmap, (int)item.pos.x);
+        item.pos.y = (float)(gy - 8);
+        item.type    = spec.type;
+        item.inWater = spec.water;
+        item.bobPhase = randf(0, 6.28f);
+        g.trash.push_back(item);
+    }
+
+    g.player.totalTrash     = (int)g.trash.size();
+    g.player.trashCollected = 0;
+}
+
+static void switchZone(int newIdx) {
+    if (newIdx < 0 || newIdx >= NUM_ZONES) return;
+    g.currentZoneIdx  = newIdx;
+    g.currentZoneMap  = g.allZones[newIdx];
+    g.player.pos      = {100.0f, 300.0f};   // will fall to ground
+    g.player.vel      = {0, 0};
+    g.camera          = {0, 0};
+    g.currentZoneName = ZONE_DISPLAY_NAMES[newIdx];
+    g.zoneNameTimer   = 3.0f;
+    g.zoneTransitioning  = true;
+    g.zoneTransitionTimer = 0.6f;  // 0.6s input disable
+    generateZoneTrash(newIdx);
+    // Reset animals for new zone
+    g.animals.clear();
+    // Spawn a few zone-specific animals (appear at low eco)
+    auto addA = [](float x, float y, AnimalType t, float eco){
+        Animal a; a.pos={x,y}; a.type=t; a.requiredEco=eco;
+        a.animPhase=randf(0,6.28f); a.moveTimer=randf(1,4);
+        g.animals.push_back(a);
+    };
+    switch(newIdx){
+        case 0: addA(350,680,AnimalType::CRAB,10); addA(800,500,AnimalType::BIRD,25); break;
+        case 1: addA(600,520,AnimalType::FISH,0);  addA(1500,500,AnimalType::BIRD,15); break;
+        case 2: addA(400,640,AnimalType::BIRD,5);  addA(2000,640,AnimalType::BIRD,20); break;
+        case 3: addA(600,520,AnimalType::DEER,5);  addA(1800,480,AnimalType::BIRD,20); break;
+        case 4: addA(800,480,AnimalType::BIRD,0);  addA(2200,460,AnimalType::BIRD,15); break;
+    }
+}
+
 static void generateWorld() {
     srand((unsigned)time(nullptr));
 
     // CHANGED: build Beach tilemap (replaces procedural heightmap)
     g.currentZoneMap = buildBeachZone();
+
+    // Preload all zone tilemaps
+    g.allZones[0] = g.currentZoneMap;  // Beach already built
+    g.allZones[1] = buildShallowsZone();
+    g.allZones[2] = buildMeadowZone();
+    g.allZones[3] = buildForestZone();
+    g.allZones[4] = buildHillZone();
+    g.currentZoneIdx = 0;
 
     // Init player sprite sheet — try real PNG first, fall back to placeholder
     if (g.playerSheet.texture) { destroySpriteSheet(g.playerSheet); }
@@ -435,64 +616,9 @@ static void generateWorld() {
     // Register animation clips on player
     registerPlayerClips(g.player.anim);
 
-    // Generate trash items across all zones
-    g.trash.clear();
+    generateZoneTrash(0);  // Beach trash
 
-    // Beach trash (bottles, cans on sand + some in water)
-    auto addTrash = [](float x, float y, TrashType t, bool water = false) {
-        TrashItem item;
-        item.pos = {x, y};
-        item.type = t;
-        item.inWater = water;
-        item.bobPhase = randf(0, 6.28f);
-        g.trash.push_back(item);
-    };
-
-    // Beach zone ~15 items
-    for (int i = 0; i < 5; i++) {
-        float x = randf(100, 500);
-        addTrash(x, (float)getGroundY(x) - 8, TrashType::BOTTLE, x < 250);
-    }
-    for (int i = 0; i < 5; i++) {
-        float x = randf(400, 1200);
-        addTrash(x, (float)getGroundY(x) - 8, TrashType::CAN);
-    }
-    for (int i = 0; i < 5; i++) {
-        float x = randf(800, 2000);
-        addTrash(x, (float)getGroundY(x) - 8, TrashType::BAG);
-    }
-
-    // Forest zone ~15 items
-    for (int i = 0; i < 5; i++) {
-        float x = randf(ZONE_FOREST_START + 100, ZONE_FOREST_START + 800);
-        addTrash(x, (float)getGroundY(x) - 8, TrashType::TIRE);
-    }
-    for (int i = 0; i < 5; i++) {
-        float x = randf(ZONE_FOREST_START + 600, ZONE_FOREST_START + 1500);
-        addTrash(x, (float)getGroundY(x) - 8, TrashType::CAN);
-    }
-    for (int i = 0; i < 5; i++) {
-        float x = randf(ZONE_FOREST_START + 1200, ZONE_FOREST_END - 100);
-        addTrash(x, (float)getGroundY(x) - 8, TrashType::BAG);
-    }
-
-    // Wetland zone ~15 items (some in water pools)
-    for (int i = 0; i < 5; i++) {
-        float x = randf(ZONE_WETLAND_START + 300, ZONE_WETLAND_START + 600);
-        addTrash(x, (float)getGroundY(x) - 8, TrashType::BARREL, true);
-    }
-    for (int i = 0; i < 5; i++) {
-        float x = randf(ZONE_WETLAND_START + 800, ZONE_WETLAND_START + 1200);
-        addTrash(x, (float)getGroundY(x) - 8, TrashType::BOTTLE, true);
-    }
-    for (int i = 0; i < 5; i++) {
-        float x = randf(ZONE_WETLAND_START + 1400, ZONE_WETLAND_END - 200);
-        addTrash(x, (float)getGroundY(x) - 8, TrashType::CAN);
-    }
-
-    g.player.totalTrash = (int)g.trash.size();
-
-    // Animals (appear as eco improves)
+    // Animals (appear as eco improves) — Beach zone only at startup
     g.animals.clear();
     auto addAnimal = [](float x, float y, AnimalType t, float ecoReq) {
         Animal a;
@@ -503,24 +629,10 @@ static void generateWorld() {
         a.moveTimer = randf(1, 4);
         g.animals.push_back(a);
     };
-
-    // Beach animals
     addAnimal(350, 680, AnimalType::CRAB, 10);
     addAnimal(600, 680, AnimalType::CRAB, 20);
     addAnimal(180, 710, AnimalType::FISH, 15);
     addAnimal(800, 500, AnimalType::BIRD, 25);
-
-    // Forest animals
-    addAnimal(ZONE_FOREST_START + 400, 520, AnimalType::DEER, 35);
-    addAnimal(ZONE_FOREST_START + 900, 500, AnimalType::BIRD, 30);
-    addAnimal(ZONE_FOREST_START + 1400, 540, AnimalType::DEER, 50);
-    addAnimal(ZONE_FOREST_START + 1800, 480, AnimalType::BIRD, 45);
-
-    // Wetland animals
-    addAnimal(ZONE_WETLAND_START + 400, 650, AnimalType::FROG, 55);
-    addAnimal(ZONE_WETLAND_START + 1000, 660, AnimalType::FROG, 65);
-    addAnimal(ZONE_WETLAND_START + 600, 640, AnimalType::FISH, 60);
-    addAnimal(ZONE_WETLAND_START + 1500, 600, AnimalType::BIRD, 75);
 
     // Clouds
     g.clouds.clear();
@@ -704,8 +816,39 @@ static void updatePlaying(float dt) {
     p.pos.x += p.vel.x * dt;
     p.pos.y += p.vel.y * dt;
 
-    // World bounds
+    // World bounds — left edge hard stop
     if (p.pos.x < 20) p.pos.x = 20;
+
+    // Zone transition (right edge) — Phase 1.5
+    if (g.zoneTransitioning) {
+        g.zoneTransitionTimer -= dt;
+        if (g.zoneTransitionTimer <= 0) g.zoneTransitioning = false;
+    }
+
+    if (p.pos.x > WORLD_W - 32 && !g.zoneTransitioning) {
+        int nextIdx = g.currentZoneIdx + 1;
+        if (nextIdx < NUM_ZONES) {
+            float requiredBI = ZONE_BI_THRESHOLDS[nextIdx] * 100.0f;  // in percent
+            if (g.ecoMeter >= requiredBI) {
+                // Unlock — switch zone
+                switchZone(nextIdx);
+            } else {
+                // Locked — push back and flash
+                p.pos.x = WORLD_W - 36;
+                p.vel.x = 0;
+                char buf[64];
+                snprintf(buf, sizeof(buf), "Need %.0f%% ECO to enter", requiredBI);
+                g.flashMsg   = buf;
+                g.flashMsgTimer = 2.0f;
+                g.popupMsg   = buf;
+                g.popupTimer = 2.0f;
+            }
+        } else {
+            // Last zone — hard stop at right
+            p.pos.x = WORLD_W - 32;
+        }
+    }
+    // Hard right clamp (after transition check)
     if (p.pos.x > WORLD_W - 20) p.pos.x = WORLD_W - 20;
 
     // CHANGED: Ground collision via TileMap (replaces getGroundY heightmap)
@@ -748,7 +891,20 @@ static void updatePlaying(float dt) {
             spawnParticles(g.trash[nearestIdx].pos, {60, 200, 80, 255}, 12, 100.0f);
 
             // Update eco meter
-            g.targetEco = (float)p.trashCollected / (float)p.totalTrash * 100.0f;
+            // Each zone contributes 20% of total eco; accumulate across zones
+            // Simple: eco within current zone contributes fully up to the next threshold
+            {
+                float zoneBase  = ZONE_BI_THRESHOLDS[g.currentZoneIdx] * 100.0f;
+                float zoneCap   = (g.currentZoneIdx < NUM_ZONES - 1)
+                                  ? ZONE_BI_THRESHOLDS[g.currentZoneIdx + 1] * 100.0f
+                                  : 100.0f;
+                float zoneRange = zoneCap - zoneBase;
+                float zoneProgress = (p.totalTrash > 0)
+                    ? (float)p.trashCollected / (float)p.totalTrash
+                    : 0.0f;
+                float newEco = zoneBase + zoneProgress * zoneRange;
+                if (newEco > g.targetEco) g.targetEco = newEco;  // eco never goes down
+            }
 
             // Show popup
             const char* names[] = {"Bottle", "Can", "Plastic bag", "Tire", "Barrel"};
@@ -818,14 +974,8 @@ static void updatePlaying(float dt) {
         if (c.x > WORLD_W + 200) c.x = -c.w - 50;
     }
 
-    // Zone detection
-    Zone curZone = getZone(p.pos.x);
-    if (curZone != g.lastZone) {
-        g.lastZone = curZone;
-        g.currentZoneName = getZoneName(curZone);
-        g.zoneNameTimer = 3.0f;
-    }
     if (g.zoneNameTimer > 0) g.zoneNameTimer -= dt;
+    if (g.flashMsgTimer > 0) g.flashMsgTimer -= dt;
 
     // Popup timer
     if (g.popupTimer > 0) g.popupTimer -= dt;
@@ -1592,6 +1742,37 @@ static void drawWin() {
              {60, 200, 80, (Uint8)(60 + blink*120)});
 }
 
+static void drawZoneGate() {
+    if (g.currentZoneIdx >= NUM_ZONES - 1) return;  // last zone, no gate
+
+    float nextThreshold = ZONE_BI_THRESHOLDS[g.currentZoneIdx + 1] * 100.0f;
+    bool  unlocked = g.ecoMeter >= nextThreshold;
+    Color gateCol  = unlocked ? COL_GATE_UNLOCKED : COL_GATE_LOCKED;
+
+    int gateWorldX = WORLD_W - 32;
+    int gateScreenX = gateWorldX - (int)g.camera.x;
+
+    if (gateScreenX < -8 || gateScreenX > WINDOW_W + 8) return;
+
+    // Dashed vertical line
+    for (int y = 0; y < WINDOW_H; y += 18) {
+        drawRect(gateScreenX, y, 5, 12, gateCol);
+    }
+
+    // Small arrow + hint at mid-screen height
+    int midY = WINDOW_H / 2 - 40;
+    drawRect(gateScreenX - 20, midY, 50, 30, {10, 10, 26, 200});
+    // Arrow pointing right (3 rects)
+    Color arrowCol = unlocked ? COL_GATE_UNLOCKED : COL_GATE_LOCKED;
+    drawRect(gateScreenX - 14, midY + 13, 20, 4, arrowCol);  // shaft
+    drawRect(gateScreenX + 5,  midY + 8,  6, 14, arrowCol); // arrowhead right bar
+    // Lock icon if locked (simple X)
+    if (!unlocked) {
+        drawRect(gateScreenX - 12, midY + 5,  4, 4, {220, 80, 80, 255});
+        drawRect(gateScreenX - 12, midY + 18, 4, 4, {220, 80, 80, 255});
+    }
+}
+
 static void render() {
     switch (g.scene) {
         case GameScene::MENU:
@@ -1608,6 +1789,7 @@ static void render() {
             drawPlayer();
             drawParticles();
             drawHUD();
+            drawZoneGate();
             break;
         case GameScene::PAUSED:
             drawSky();
