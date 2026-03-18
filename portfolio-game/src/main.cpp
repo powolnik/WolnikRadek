@@ -24,6 +24,12 @@
 #include <string>
 #include <algorithm>
 
+// CHANGED: TileMap system replacing procedural terrain
+#include "zone.h"
+#include "zones/beach.h"
+#include "spritesheet.h"
+#include "animation.h"
+
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 constexpr int   WINDOW_W      = 1280;
@@ -33,16 +39,17 @@ constexpr float PLAYER_SPEED  = 220.0f;
 constexpr float JUMP_FORCE    = 420.0f;
 constexpr float SWIM_SPEED    = 160.0f;
 constexpr float PICKUP_RANGE  = 48.0f;
-constexpr int   WORLD_W       = 6400;
-constexpr int   WORLD_H       = 1200;
+// CHANGED: world now matches Beach tilemap dimensions (240×45 tiles × 16px)
+constexpr int   WORLD_W       = 3840; // 240 tiles × 16px
+constexpr int   WORLD_H       = 720;  // 45 tiles × 16px (1 viewport tall)
 
 // Zone boundaries (world X coords)
-constexpr int ZONE_BEACH_START  = 0;
-constexpr int ZONE_BEACH_END    = 2100;
-constexpr int ZONE_FOREST_START = 2100;
-constexpr int ZONE_FOREST_END   = 4200;
-constexpr int ZONE_WETLAND_START = 4200;
-constexpr int ZONE_WETLAND_END  = 6400;
+constexpr int ZONE_BEACH_START   = 0;
+constexpr int ZONE_BEACH_END     = 3840;   // 240 tiles × 16px (current tilemap)
+constexpr int ZONE_FOREST_START  = 3840;   // placeholder — tilemap not yet loaded
+constexpr int ZONE_FOREST_END    = 7680;
+constexpr int ZONE_WETLAND_START = 7680;   // placeholder — tilemap not yet loaded
+constexpr int ZONE_WETLAND_END   = 11520;
 
 // Colors (solarpunk palette)
 struct Color { Uint8 r, g, b, a; };
@@ -99,6 +106,7 @@ struct Player {
     int  totalTrash = 0;
     float animTime = 0;
     float pickupCooldown = 0;
+    AnimationController anim;   // clip-based animation controller
     // Simple bounding box
     float w = 24, h = 48;
 };
@@ -182,6 +190,12 @@ struct GameState {
     std::vector<Particle>        particles;
     std::vector<TerrainSegment>  terrain;
     std::vector<Decoration>      decorations;
+
+    // CHANGED: TileMap-based terrain (replaces procedural heightmap)
+    TileMap currentZoneMap;
+
+    // Player sprite sheet (loaded from PNG or placeholder at runtime)
+    SpriteSheet playerSheet;
 
     // Eco meter (0-100)
     float ecoMeter = 0;
@@ -357,8 +371,69 @@ static void spawnParticles(Vec2 pos, Color col, int count, float speed = 80.0f) 
 
 // ─── World Generation ────────────────────────────────────────────────────────
 
+// ── Placeholder 16-frame player sprite sheet (256×32) ────────────────────────
+// 16 frames × 16px wide × 32px tall. Each frame is a coloured rectangle with
+// a small white marker so you can see which frame is active.
+static SDL_Texture* createPlaceholderPlayerSheet(SDL_Renderer* renderer) {
+    const int FW = 16, FH = 32, FRAMES = 16;
+    SDL_Texture* tex = SDL_CreateTexture(renderer,
+                                         SDL_PIXELFORMAT_RGBA8888,
+                                         SDL_TEXTUREACCESS_TARGET,
+                                         FW * FRAMES, FH);
+    if (!tex) return nullptr;
+    SDL_SetTextureBlendMode(tex, SDL_BLENDMODE_BLEND);
+    SDL_SetRenderTarget(renderer, tex);
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
+    SDL_RenderClear(renderer);
+
+    for (int i = 0; i < FRAMES; i++) {
+        int ox = i * FW;
+        // Body: green with slight hue shift per frame for visibility
+        Uint8 g_val = (Uint8)(140 + i * 6);
+        SDL_SetRenderDrawColor(renderer, 30, g_val, 60, 255);
+        SDL_Rect body = {ox + 3, 8, 10, 20};
+        SDL_RenderFillRect(renderer, &body);
+
+        // Head
+        SDL_SetRenderDrawColor(renderer, 210, 160, 110, 255);
+        SDL_Rect head = {ox + 4, 1, 8, 8};
+        SDL_RenderFillRect(renderer, &head);
+
+        // Legs
+        SDL_SetRenderDrawColor(renderer, 20, 80, 40, 255);
+        SDL_Rect legs = {ox + 3, 28, 10, 4};
+        SDL_RenderFillRect(renderer, &legs);
+
+        // White dot — frame indicator (top-left corner of frame)
+        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 180);
+        SDL_Rect dot = {ox + 1, 1, 2, 2};
+        SDL_RenderFillRect(renderer, &dot);
+        // Extra dots for frame index (binary-ish visual)
+        if (i & 1) { SDL_Rect d2 = {ox+1, 4, 2, 2}; SDL_RenderFillRect(renderer, &d2); }
+        if (i & 2) { SDL_Rect d3 = {ox+4, 1, 2, 2}; SDL_RenderFillRect(renderer, &d3); }
+        if (i & 4) { SDL_Rect d4 = {ox+4, 4, 2, 2}; SDL_RenderFillRect(renderer, &d4); }
+    }
+
+    SDL_SetRenderTarget(renderer, nullptr);
+    return tex;
+}
+
 static void generateWorld() {
     srand((unsigned)time(nullptr));
+
+    // CHANGED: build Beach tilemap (replaces procedural heightmap)
+    g.currentZoneMap = buildBeachZone();
+
+    // Init player sprite sheet — try real PNG first, fall back to placeholder
+    if (g.playerSheet.texture) { destroySpriteSheet(g.playerSheet); }
+    g.playerSheet = loadSpriteSheet(g.renderer, "assets/player.png", 16, 32);
+    if (!g.playerSheet.texture) {
+        SDL_Texture* ph = createPlaceholderPlayerSheet(g.renderer);
+        g.playerSheet = { ph, 16, 32, 16, 16 };
+    }
+
+    // Register animation clips on player
+    registerPlayerClips(g.player.anim);
 
     // Generate trash items across all zones
     g.trash.clear();
@@ -578,6 +653,21 @@ static void updatePlaying(float dt) {
     p.pickupCooldown -= dt;
     if (p.pickupCooldown < 0) p.pickupCooldown = 0;
 
+    // ── Drive AnimationController ──────────────────────────────────────────
+    {
+        const std::string prevClip = p.anim.currentClip;
+        if (p.pickupCooldown > 0.01f) {
+            playClip(p.anim, "pickup");
+        } else if (!p.onGround && !p.inWater) {
+            playClip(p.anim, "jump");
+        } else if (std::abs(p.vel.x) > 10.0f) {
+            playClip(p.anim, "walk");
+        } else {
+            playClip(p.anim, "idle");
+        }
+        updateAnimation(p.anim, dt);
+    }
+
     // Horizontal movement
     float moveX = 0;
     if (g.input.left)  moveX -= 1.0f;
@@ -618,17 +708,24 @@ static void updatePlaying(float dt) {
     if (p.pos.x < 20) p.pos.x = 20;
     if (p.pos.x > WORLD_W - 20) p.pos.x = WORLD_W - 20;
 
-    // Ground collision
-    int groundY = getGroundY(p.pos.x);
+    // CHANGED: Ground collision via TileMap (replaces getGroundY heightmap)
     p.onGround = false;
-    if (p.pos.y + p.h/2 >= groundY && p.vel.y >= 0) {
-        p.pos.y = groundY - p.h/2;
+    float feetY  = p.pos.y + p.h / 2.0f;
+    int   tileTs = g.currentZoneMap.tileSize;
+    bool  hitGround =
+        isSolidTile(g.currentZoneMap, (int)p.pos.x,               (int)feetY) ||
+        isSolidTile(g.currentZoneMap, (int)(p.pos.x - p.w/2 + 2), (int)feetY) ||
+        isSolidTile(g.currentZoneMap, (int)(p.pos.x + p.w/2 - 2), (int)feetY);
+    if (hitGround && p.vel.y >= 0) {
+        // Snap feet to top edge of the tile row they entered
+        int tileRow  = (int)feetY / tileTs;
+        p.pos.y = (float)(tileRow * tileTs) - p.h / 2.0f;
         p.vel.y = 0;
         p.onGround = true;
     }
 
-    // Water check
-    p.inWater = isWaterAt(p.pos.x, p.pos.y + p.h/2 - 10);
+    // CHANGED: Water check via TileMap (replaces isWaterAt)
+    p.inWater = isWaterTile(g.currentZoneMap, (int)p.pos.x, (int)(p.pos.y));
 
     // Pickup trash (E key)
     if (g.input.actionPressed && p.pickupCooldown <= 0) {
@@ -1174,6 +1271,18 @@ static void drawPlayer() {
     float sy = p.pos.y - g.camera.y;
     float dir = p.facingRight ? 1.0f : -1.0f;
 
+    // ── If a sprite sheet is available, use it ────────────────────────────
+    if (g.playerSheet.texture) {
+        int frame = getCurrentFrameIndex(p.anim);
+        // Centre the 32×64 drawn sprite on the player's logical position
+        int drawX = (int)sx - 16;  // 16px × scale2 = 32px wide → offset 16
+        int drawY = (int)sy - 48;  // 32px × scale2 = 64px tall → feet at sy+16
+        drawFrame(g.renderer, g.playerSheet, frame, drawX, drawY,
+                  !p.facingRight, 2);
+        return;
+    }
+
+    // ── Fallback: SDL2 primitive drawing (no sprite sheet loaded) ─────────
     // Walking animation
     float legAnim = p.onGround && std::abs(p.vel.x) > 10 ?
                     std::sin(p.animTime * 10) * 6 : 0;
@@ -1344,6 +1453,24 @@ static void drawHUD() {
     SDL_RenderFillRect(g.renderer, &cvr);
     SDL_SetRenderDrawColor(g.renderer, 96, 96, 255, 150);
     SDL_RenderDrawRect(g.renderer, &cvr);
+
+    // DEBUG: camera.x progress bar (bottom of screen, 4px tall)
+    // Shows scroll position from 0 (left) to WORLD_W-WINDOW_W (right)
+    {
+        const int maxScroll = WORLD_W - WINDOW_W; // 2560
+        float camPct = (maxScroll > 0) ? std::min(1.0f, g.camera.x / (float)maxScroll) : 0.0f;
+        int barW = (int)(camPct * WINDOW_W);
+        // Dark bg
+        drawRect(0, WINDOW_H - 6, WINDOW_W, 6, {10, 10, 26, 180});
+        // Progress fill — green at start, yellow at mid, orange near end
+        Color dbgCol = {50, 220, 100, 200};
+        if (camPct > 0.66f) dbgCol = {220, 160, 50, 200};
+        else if (camPct > 0.33f) dbgCol = {180, 220, 50, 200};
+        drawRect(0, WINDOW_H - 6, barW, 6, dbgCol);
+        // Tick at start and end
+        drawRect(0, WINDOW_H - 6, 2, 6, COL_WHITE);
+        drawRect(WINDOW_W - 2, WINDOW_H - 6, 2, 6, COL_WHITE);
+    }
 }
 
 static void drawMenu() {
@@ -1423,7 +1550,8 @@ static void drawPaused() {
 static void drawWin() {
     // Render the game world behind
     drawSky();
-    drawTerrain();
+    // CHANGED: TileMap renderer
+    drawTileMap(g.renderer, g.currentZoneMap, (int)g.camera.x, (int)g.camera.y);
     drawTrees();
     drawDecorations();
     drawAnimals();
@@ -1471,7 +1599,8 @@ static void render() {
             break;
         case GameScene::PLAYING:
             drawSky();
-            drawTerrain();
+            // CHANGED: TileMap renderer replaces procedural drawTerrain()
+            drawTileMap(g.renderer, g.currentZoneMap, (int)g.camera.x, (int)g.camera.y);
             drawTrees();
             drawDecorations();
             drawTrash();
@@ -1482,7 +1611,8 @@ static void render() {
             break;
         case GameScene::PAUSED:
             drawSky();
-            drawTerrain();
+            // CHANGED: TileMap renderer replaces procedural drawTerrain()
+            drawTileMap(g.renderer, g.currentZoneMap, (int)g.camera.x, (int)g.camera.y);
             drawTrees();
             drawDecorations();
             drawTrash();

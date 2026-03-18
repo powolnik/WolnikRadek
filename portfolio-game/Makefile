@@ -6,20 +6,22 @@
 #   make
 #   # then open index.html via a local server (e.g. python3 -m http.server)
 
-SRC      = src/main.cpp
-OUT_DIR  = build
-OUT      = $(OUT_DIR)/game.js
+SRC        = src/main.cpp src/spritesheet.cpp
+OUT_DIR    = build
+OUT        = $(OUT_DIR)/game.js
 SHELL_HTML = shell.html
-FINAL    = $(OUT_DIR)/index.html
+FINAL      = $(OUT_DIR)/index.html
 
-CC       = emcc
-CFLAGS   = -std=c++17 -O2 -Wall -Wextra
-LDFLAGS  = -s USE_SDL=2 \
-           -s ALLOW_MEMORY_GROWTH=1 \
-           -s INITIAL_MEMORY=33554432 \
-           -s EXPORTED_RUNTIME_METHODS='["ccall","cwrap"]' \
-           -s NO_EXIT_RUNTIME=1 \
-           --shell-file $(SHELL_HTML)
+CC         = emcc
+CFLAGS     = -std=c++17 -O2 -Wall -Wextra -Isrc
+LDFLAGS    = -s USE_SDL=2 \
+             -s USE_SDL_IMAGE=2 \
+             -s SDL2_IMAGE_FORMATS='["png"]' \
+             -s ALLOW_MEMORY_GROWTH=1 \
+             -s INITIAL_MEMORY=33554432 \
+             -s EXPORTED_RUNTIME_METHODS='["ccall","cwrap"]' \
+             -s NO_EXIT_RUNTIME=1 \
+             --shell-file $(SHELL_HTML)
 
 .PHONY: all clean debug serve
 
