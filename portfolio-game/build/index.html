@@ -2,10 +2,95 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
-  <meta http-equiv="refresh" content="0; url=../../">
-  <title>Redirecting…</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Zielony Pływak</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a1628;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      font-family: monospace;
+      color: #7ec8a0;
+    }
+    #game-container {
+      position: relative;
+    }
+    canvas#canvas {
+      display: block;
+      border: 2px solid #2a5a3a;
+      image-rendering: pixelated;
+    }
+    #status {
+      margin-top: 12px;
+      font-size: 14px;
+      color: #4a8a6a;
+      text-align: center;
+      min-height: 20px;
+    }
+    #back {
+      margin-top: 16px;
+      color: #4a8a6a;
+      text-decoration: none;
+      font-size: 12px;
+      opacity: 0.6;
+    }
+    #back:hover { opacity: 1; }
+    #spinner {
+      font-size: 13px;
+      color: #7ec8a0;
+      margin-bottom: 8px;
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+    @keyframes pulse { 0%,100%{opacity:0.4} 50%{opacity:1} }
+  </style>
 </head>
 <body>
-  <p>Game not yet compiled. <a href="../../">Return to portfolio</a>.</p>
+  <div id="game-container">
+    <div id="spinner">▶ loading Zielony Pływak…</div>
+    <canvas id="canvas" oncontextmenu="event.preventDefault()"></canvas>
+    <div id="status"></div>
+    <a id="back" href="../../">← back to portfolio</a>
+  </div>
+
+  <script type="text/javascript">
+    var statusEl = document.getElementById('status');
+    var spinnerEl = document.getElementById('spinner');
+
+    var Module = {
+      canvas: (function() {
+        var canvas = document.getElementById('canvas');
+        canvas.addEventListener('webglcontextlost', function(e) {
+          e.preventDefault();
+        }, false);
+        return canvas;
+      })(),
+      setStatus: function(text) {
+        if (text) {
+          statusEl.textContent = text;
+        } else {
+          spinnerEl.style.display = 'none';
+          statusEl.textContent = '';
+        }
+      },
+      monitorRunDependencies: function(left) {
+        if (left === 0) {
+          spinnerEl.style.display = 'none';
+        }
+      },
+      onRuntimeInitialized: function() {
+        spinnerEl.style.display = 'none';
+        statusEl.textContent = '';
+      }
+    };
+    window.onerror = function(msg) {
+      statusEl.textContent = 'Error: ' + msg;
+      statusEl.style.color = '#e06060';
+    };
+  </script>
+  <script async type="text/javascript" src="index.js"></script>
 </body>
 </html>
