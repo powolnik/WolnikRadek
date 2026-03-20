@@ -28,7 +28,7 @@
       overflow-x: hidden;
     }
 
-    /* ── animated canvas background ───────────────────── */
+    /* ── animated canvas background ───────────────────────────────────────────── */
     #bg-canvas {
       position: fixed;
       inset: 0;
@@ -37,7 +37,7 @@
       pointer-events: none;
     }
 
-    /* ── layout shell ──────────────────────────────────── */
+    /* ── layout shell ──────────────────────────────────────────────────────────── */
     #shell {
       position: relative;
       z-index: 1;
@@ -47,7 +47,7 @@
       visibility: hidden;
     }
 
-    /* ── top bar ───────────────────────────────────────── */
+    /* ── top bar ───────────────────────────────────────────────────────────────── */
     #top-bar {
       display: flex;
       align-items: center;
@@ -73,7 +73,7 @@
     }
     .bar-hud span { transition: color 0.3s; }
 
-    /* ── main content ──────────────────────────────────── */
+    /* ── main content ──────────────────────────────────────────────────────────── */
     #content {
       flex: 1;
       max-width: 900px;
@@ -82,7 +82,7 @@
       padding: 48px 24px 64px;
     }
 
-    /* ── hero ──────────────────────────────────────────── */
+    /* ── hero ──────────────────────────────────────────────────────────────────── */
     #hero {
       margin-bottom: 52px;
     }
@@ -139,7 +139,7 @@
       background: rgba(96,96,255,0.12);
     }
 
-    /* ── section header ────────────────────────────────── */
+    /* ── section header ────────────────────────────────────────────────────────── */
     .section-label {
       font-size: 0.58rem;
       letter-spacing: 0.28em;
@@ -157,7 +157,7 @@
       background: rgba(96,96,255,0.18);
     }
 
-    /* ── projects grid ─────────────────────────────────── */
+    /* ── projects grid ─────────────────────────────────────────────────────────── */
     #projects {
       margin-bottom: 52px;
     }
@@ -220,10 +220,10 @@
       padding: 2px 7px;
     }
 
-    /* ── artwork section ────────────────────────────────── */
+    /* ── artwork section ────────────────────────────────────────────────────────── */
     #artwork { margin-bottom: 52px; }
 
-    /* ── skills ────────────────────────────────────────── */
+    /* ── skills ────────────────────────────────────────────────────────────────── */
     #skills {
       margin-bottom: 40px;
     }
@@ -242,7 +242,7 @@
       background: rgba(20,20,50,0.5);
     }
 
-    /* ── footer ────────────────────────────────────────── */
+    /* ── footer ────────────────────────────────────────────────────────────────── */
     #footer {
       border-top: 1px solid rgba(96,96,255,0.12);
       padding: 14px 20px;
@@ -256,7 +256,7 @@
     }
     #frame-line, #time-line { transition: color 0.2s; }
 
-    /* ── responsive ────────────────────────────────────── */
+    /* ── responsive ────────────────────────────────────────────────────────────── */
     @media (max-width: 520px) {
       #content { padding: 32px 16px 48px; }
       h1 { font-size: 1.5rem; }
@@ -760,7 +760,7 @@ function showEnterChoice() {
     setTimeout(() => { try { enterChoice.remove(); } catch(e){} }, 300);
   });
   document.getElementById('btn-game').addEventListener('click', () => {
-    window.location.href = 'portfolio-game/index.html';
+    window.location.href = 'portfolio-game/build/index.html';
   });
 }
 </script>
