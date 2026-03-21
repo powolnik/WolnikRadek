@@ -61,11 +61,13 @@
     var spinnerEl = document.getElementById('spinner');
 
     function fireEnter() {
-      var canvas = document.getElementById('canvas');
-      canvas.dispatchEvent(new KeyboardEvent('keydown', {
+      // SDL2/Emscripten captures key events from document/window
+      var evt = new KeyboardEvent('keydown', {
         key: 'Enter', code: 'Enter', keyCode: 13, which: 13,
         bubbles: true, cancelable: true
-      }));
+      });
+      document.dispatchEvent(evt);
+      window.dispatchEvent(evt);
     }
 
     var Module = {
@@ -87,13 +89,13 @@
       monitorRunDependencies: function(left) {
         if (left === 0) {
           spinnerEl.style.display = 'none';
+          // Fire after deps resolved, with a short delay for first frame
+          setTimeout(fireEnter, 200);
         }
       },
       onRuntimeInitialized: function() {
         spinnerEl.style.display = 'none';
         statusEl.textContent = '';
-        // Small delay to let the first frame render, then auto-start
-        setTimeout(fireEnter, 150);
       }
     };
     window.onerror = function(msg) {
