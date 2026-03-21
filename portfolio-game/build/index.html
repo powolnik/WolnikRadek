@@ -46,68 +46,12 @@
       animation: pulse 1.2s ease-in-out infinite;
     }
     @keyframes pulse { 0%,100%{opacity:0.4} 50%{opacity:1} }
-
-    /* SPACE hint overlay */
-    #space-hint {
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: flex-end;
-      padding-bottom: 32px;
-      pointer-events: none;
-      transition: opacity 0.8s ease;
-    }
-    #space-hint .hint-label {
-      font-size: 11px;
-      letter-spacing: 0.15em;
-      color: #4a8a6a;
-      text-transform: uppercase;
-      margin-bottom: 8px;
-      animation: fadeUpDown 2.5s ease-in-out infinite;
-    }
-    #space-hint .hint-key {
-      font-size: 13px;
-      letter-spacing: 0.3em;
-      color: #7ec8a0;
-      border: 1px solid #2a5a3a;
-      padding: 6px 28px;
-      background: rgba(10, 22, 40, 0.85);
-      animation: glow 2.5s ease-in-out infinite;
-    }
-    #space-hint .hint-sub {
-      font-size: 10px;
-      letter-spacing: 0.1em;
-      color: #2a5a3a;
-      margin-top: 7px;
-      animation: fadeUpDown 2.5s ease-in-out infinite;
-      animation-delay: 0.3s;
-    }
-    @keyframes fadeUpDown {
-      0%,100% { opacity: 0.35; transform: translateY(2px); }
-      50%      { opacity: 0.85; transform: translateY(-2px); }
-    }
-    @keyframes glow {
-      0%,100% { box-shadow: 0 0 4px rgba(96,200,120,0.15); color: #4a8a6a; border-color: #2a5a3a; }
-      50%      { box-shadow: 0 0 14px rgba(96,200,120,0.55); color: #7ec8a0; border-color: #7ec8a0; }
-    }
   </style>
 </head>
 <body>
   <div id="game-container">
     <div id="spinner">▶ loading Zielony Pływak…</div>
     <canvas id="canvas" oncontextmenu="event.preventDefault()"></canvas>
-
-    <!-- SPACE hint — fades out once player enters the world -->
-    <div id="space-hint">
-      <span class="hint-label">a different world awaits</span>
-      <span class="hint-key">SPACE</span>
-      <span class="hint-sub">to enter</span>
-    </div>
-
     <div id="status"></div>
     <a id="back" href="../../">← back to portfolio</a>
   </div>
@@ -115,25 +59,14 @@
   <script type="text/javascript">
     var statusEl  = document.getElementById('status');
     var spinnerEl = document.getElementById('spinner');
-    var hintEl    = document.getElementById('space-hint');
-    var entered   = false;
 
-    // Remap SPACE → ENTER so the Emscripten game starts on spacebar
-    document.addEventListener('keydown', function(e) {
-      if (e.code === 'Space' && !entered) {
-        e.preventDefault();
-        entered = true;
-        // fade hint out
-        hintEl.style.opacity = '0';
-        setTimeout(function() { hintEl.style.display = 'none'; }, 800);
-        // fire an Enter keydown into the canvas so the game picks it up
-        var canvas = document.getElementById('canvas');
-        canvas.dispatchEvent(new KeyboardEvent('keydown', {
-          key: 'Enter', code: 'Enter', keyCode: 13, which: 13,
-          bubbles: true, cancelable: true
-        }));
-      }
-    });
+    function fireEnter() {
+      var canvas = document.getElementById('canvas');
+      canvas.dispatchEvent(new KeyboardEvent('keydown', {
+        key: 'Enter', code: 'Enter', keyCode: 13, which: 13,
+        bubbles: true, cancelable: true
+      }));
+    }
 
     var Module = {
       canvas: (function() {
@@ -159,6 +92,8 @@
       onRuntimeInitialized: function() {
         spinnerEl.style.display = 'none';
         statusEl.textContent = '';
+        // Small delay to let the first frame render, then auto-start
+        setTimeout(fireEnter, 150);
       }
     };
     window.onerror = function(msg) {
