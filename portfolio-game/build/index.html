@@ -22,34 +22,44 @@
       border: 2px solid #2a5a3a;
       image-rendering: pixelated;
     }
+    #hint {
+      margin-top: 18px;
+      font-size: 15px;
+      letter-spacing: 0.18em;
+      color: #7ec8a0;
+      text-align: center;
+      animation: blink 1.4s ease-in-out infinite;
+      text-transform: uppercase;
+    }
+    @keyframes blink { 0%,100%{opacity:0.25} 50%{opacity:1} }
     #status {
-      margin-top: 12px;
-      font-size: 14px;
+      margin-top: 8px;
+      font-size: 12px;
       color: #4a8a6a;
       text-align: center;
-      min-height: 20px;
+      min-height: 16px;
     }
     #back {
       margin-top: 16px;
       color: #4a8a6a;
       text-decoration: none;
       font-size: 12px;
-      opacity: 0.6;
+      opacity: 0.5;
     }
     #back:hover { opacity: 1; }
     #spinner {
       font-size: 13px;
       color: #7ec8a0;
       margin-bottom: 8px;
-      animation: pulse 1.2s ease-in-out infinite;
+      animation: blink 1.2s ease-in-out infinite;
     }
-    @keyframes pulse { 0%,100%{opacity:0.4} 50%{opacity:1} }
   </style>
 </head>
 <body>
   <div id="game-container">
     <div id="spinner">▶ loading Zielony Pływak…</div>
     <canvas id="canvas" oncontextmenu="event.preventDefault()"></canvas>
+    <div id="hint" style="display:none">—— press enter to begin ——</div>
     <div id="status"></div>
     <a id="back" href="../../">← back to portfolio</a>
   </div>
@@ -57,42 +67,11 @@
   <script type="text/javascript">
     var statusEl  = document.getElementById('status');
     var spinnerEl = document.getElementById('spinner');
-    var canvas    = document.getElementById('canvas');
-
-    // Fire Enter on every available target; SDL2/Emscripten may listen on any of them
-    function fireEnter() {
-      var targets = [document, window, canvas];
-      var downOpts = { key: 'Enter', code: 'Enter', keyCode: 13, which: 13,
-                       bubbles: true, cancelable: true };
-      var upOpts   = { key: 'Enter', code: 'Enter', keyCode: 13, which: 13,
-                       bubbles: true, cancelable: true };
-      targets.forEach(function(t) {
-        if (t) t.dispatchEvent(new KeyboardEvent('keydown', downOpts));
-      });
-      setTimeout(function() {
-        targets.forEach(function(t) {
-          if (t) t.dispatchEvent(new KeyboardEvent('keyup', upOpts));
-        });
-      }, 80);
-    }
-
-    // Retry every 400 ms for up to ~4 seconds after the module initialises.
-    // SDL2's game loop needs a few rendered frames before it processes events.
-    var autoStartAttempts = 0;
-    var autoStartMax = 10;
-    var autoStartTimer = null;
-
-    function scheduleAutoStart(delayMs) {
-      autoStartTimer = setTimeout(function attempt() {
-        if (autoStartAttempts >= autoStartMax) return;
-        autoStartAttempts++;
-        fireEnter();
-        autoStartTimer = setTimeout(attempt, 400);
-      }, delayMs);
-    }
+    var hintEl    = document.getElementById('hint');
 
     var Module = {
       canvas: (function() {
+        var canvas = document.getElementById('canvas');
         canvas.addEventListener('webglcontextlost', function(e) {
           e.preventDefault();
         }, false);
@@ -109,8 +88,7 @@
       monitorRunDependencies: function(left) {
         if (left === 0) {
           spinnerEl.style.display = 'none';
-          // Start retrying after 300 ms; the game loop needs a few frames
-          scheduleAutoStart(300);
+          hintEl.style.display = 'block';
         }
       },
       onRuntimeInitialized: function() {
@@ -119,13 +97,12 @@
       }
     };
 
-    // Also cancel retries if the user interacts (they've started themselves)
-    window.addEventListener('keydown', function() {
-      if (autoStartTimer) { clearTimeout(autoStartTimer); autoStartTimer = null; }
-    }, { once: true });
-    canvas.addEventListener('click', function() {
-      if (autoStartTimer) { clearTimeout(autoStartTimer); autoStartTimer = null; }
-    }, { once: true });
+    // Hide hint once player presses Enter (they're in the game)
+    window.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' || e.keyCode === 13) {
+        hintEl.style.display = 'none';
+      }
+    });
 
     window.onerror = function(msg) {
       statusEl.textContent = 'Error: ' + msg;
