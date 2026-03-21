@@ -2,202 +2,295 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
   <title>Zielony Pływak</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      background: #0a1628;
+      width: 100%; height: 100%;
+      overflow: hidden;
+      font-family: monospace;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    /* ── Canvas wrapper: scales canvas to fill viewport keeping 16:9 ── */
+    #wrap {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #scaler {
+      position: relative;
+      width: 1280px;
+      height: 720px;
+      transform-origin: top left;
+    }
+    canvas#canvas {
+      display: block;
+      width: 1280px;
+      height: 720px;
+      image-rendering: pixelated;
+    }
+
+    /* ── Spinner / loading overlay ── */
+    #loader {
+      position: absolute;
+      inset: 0;
       background: #0a1628;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      min-height: 100vh;
-      font-family: monospace;
       color: #7ec8a0;
-      gap: 0;
-    }
-    #game-container { position: relative; }
-    canvas#canvas {
-      display: block;
-      border: 2px solid #2a5a3a;
-      image-rendering: pixelated;
-    }
-    #hint {
-      margin-top: 18px;
       font-size: 15px;
-      letter-spacing: 0.18em;
+      letter-spacing: .12em;
+      z-index: 10;
+      pointer-events: none;
+    }
+    #loader.hidden { display: none; }
+    #loader-dot {
+      width: 8px; height: 8px;
+      background: #7ec8a0;
+      border-radius: 50%;
+      margin-bottom: 18px;
+      animation: pulse 1s ease-in-out infinite;
+    }
+    @keyframes pulse { 0%,100%{opacity:.2;transform:scale(.8)} 50%{opacity:1;transform:scale(1.2)} }
+
+    /* ── Tap-to-start overlay (menu screen) ── */
+    #tap-start {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      padding-bottom: 48px;
+      z-index: 8;
+      pointer-events: none;
+    }
+    #tap-start span {
       color: #7ec8a0;
-      text-align: center;
-      animation: blink 1.4s ease-in-out infinite;
+      font-size: 18px;
+      letter-spacing: .2em;
       text-transform: uppercase;
+      animation: blink 1.4s ease-in-out infinite;
+      pointer-events: auto;
+      cursor: pointer;
+      padding: 12px 24px;
+      border: 1px solid #2a5a3a;
+      border-radius: 4px;
+      background: rgba(10,22,40,.7);
     }
-    @keyframes blink { 0%,100%{opacity:0.25} 50%{opacity:1} }
-    #status {
-      margin-top: 6px;
-      font-size: 12px;
-      color: #4a8a6a;
-      text-align: center;
-      min-height: 16px;
+    #tap-start.hidden { display: none; }
+    @keyframes blink { 0%,100%{opacity:.25} 50%{opacity:1} }
+
+    /* ── Touch controls overlay ── */
+    #touch-ui {
+      position: absolute;
+      inset: 0;
+      z-index: 9;
+      pointer-events: none;
     }
-    #spinner {
-      font-size: 13px;
-      color: #7ec8a0;
-      margin-bottom: 8px;
-      animation: blink 1.2s ease-in-out infinite;
+    #touch-ui.hidden { display: none; }
+
+    .btn {
+      position: absolute;
+      border-radius: 50%;
+      background: rgba(100,200,130,.18);
+      border: 2px solid rgba(100,200,130,.35);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: rgba(150,230,160,.8);
+      font-size: 22px;
+      pointer-events: auto;
+      touch-action: none;
+      -webkit-tap-highlight-color: transparent;
+      transition: background .1s;
+    }
+    .btn:active, .btn.pressed {
+      background: rgba(100,200,130,.42);
+      border-color: rgba(100,200,130,.7);
+    }
+    .btn.rect {
+      border-radius: 10px;
     }
 
-    /* info panel */
-    #info {
-      display: none;
-      margin-top: 22px;
-      width: 100%;
-      max-width: 1280px;
-      display: none;
-      flex-direction: row;
-      justify-content: space-between;
-      gap: 32px;
-      padding: 0 4px;
-    }
-    #info.visible { display: flex; }
-    .info-block {
-      flex: 1;
-      border: 1px solid #1e3d2a;
-      border-radius: 4px;
-      padding: 12px 16px;
-      background: #0d1f14;
-    }
-    .info-block h3 {
-      font-size: 11px;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      color: #4a8a6a;
-      margin-bottom: 10px;
-      border-bottom: 1px solid #1e3d2a;
-      padding-bottom: 6px;
-    }
-    .controls-grid {
-      display: grid;
-      grid-template-columns: auto 1fr;
-      gap: 6px 14px;
-      align-items: center;
-    }
-    .key {
-      display: inline-block;
-      background: #1a3a2a;
-      border: 1px solid #2a6a4a;
-      border-radius: 3px;
-      padding: 2px 7px;
-      font-size: 12px;
-      color: #9ee0b8;
-      white-space: nowrap;
-      text-align: center;
-    }
-    .key-desc {
-      font-size: 12px;
-      color: #5a9a7a;
-    }
-    .about-text {
-      font-size: 12px;
-      color: #5a9a7a;
-      line-height: 1.7;
-    }
-    .about-text strong {
-      color: #9ee0b8;
-    }
+    /* Left side — D-pad */
+    #btn-left  { width:80px;height:80px; bottom:110px; left:20px; }
+    #btn-right { width:80px;height:80px; bottom:110px; left:120px; }
+
+    /* Right side — action buttons */
+    #btn-jump     { width:90px;height:90px; bottom:120px; right:110px; }
+    #btn-interact { width:70px;height:70px; bottom:220px; right:20px; }
+    #btn-pause    { width:54px;height:54px; top:16px;     right:16px; border-radius:10px; font-size:18px; }
+
+    /* Back link */
     #back {
-      margin-top: 16px;
-      margin-bottom: 20px;
-      color: #4a8a6a;
+      position: absolute;
+      bottom: 6px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: #3a6a5a;
+      font-size: 11px;
       text-decoration: none;
-      font-size: 12px;
-      opacity: 0.5;
+      opacity: .5;
+      z-index: 20;
+      pointer-events: auto;
     }
     #back:hover { opacity: 1; }
   </style>
 </head>
 <body>
-  <div id="game-container">
-    <div id="spinner">▶ loading Zielony Pływak…</div>
+<div id="wrap">
+  <div id="scaler">
+
+    <!-- Game canvas -->
     <canvas id="canvas" oncontextmenu="event.preventDefault()"></canvas>
-    <div id="hint" style="display:none">—— press enter to begin ——</div>
-    <div id="status"></div>
-  </div>
 
-  <div id="info">
-    <div class="info-block">
-      <h3>about</h3>
-      <p class="about-text">
-        You are <strong>Kai</strong>, a solarpunk wanderer exploring a polluted island.
-        <br><br>
-        Roam across <strong>3 zones</strong> — Beach, Forest &amp; Wetlands — picking up
-        trash to restore the island’s <strong>Eco Meter</strong>. As the land heals,
-        wildlife returns. Collect all <strong>45 pieces</strong> to win.
-      </p>
+    <!-- Loading overlay -->
+    <div id="loader">
+      <div id="loader-dot"></div>
+      <span>loading Zielony Pływak&hellip;</span>
     </div>
-    <div class="info-block">
-      <h3>controls</h3>
-      <div class="controls-grid">
-        <span class="key">A &nbsp;/&nbsp; ←</span><span class="key-desc">move left</span>
-        <span class="key">D &nbsp;/&nbsp; →</span><span class="key-desc">move right</span>
-        <span class="key">SPACE</span>          <span class="key-desc">jump</span>
-        <span class="key">E</span>              <span class="key-desc">pick up trash</span>
-        <span class="key">ESC</span>            <span class="key-desc">pause</span>
-        <span class="key">ENTER</span>          <span class="key-desc">confirm / start</span>
-      </div>
+
+    <!-- Tap to start (shown after load, hidden after ENTER) -->
+    <div id="tap-start">
+      <span id="tap-label">— tap to begin —</span>
+    </div>
+
+    <!-- Touch controls (shown after game starts) -->
+    <div id="touch-ui" class="hidden">
+      <button class="btn" id="btn-left">&#9664;</button>
+      <button class="btn" id="btn-right">&#9654;</button>
+      <button class="btn" id="btn-jump">&#9651;</button>
+      <button class="btn" id="btn-interact">E</button>
+      <button class="btn rect" id="btn-pause">&#9646;&#9646;</button>
     </div>
   </div>
+</div>
 
-  <a id="back" href="../../">← back to portfolio</a>
+<a id="back" href="../../">&larr; back to portfolio</a>
 
-  <script type="text/javascript">
-    var statusEl  = document.getElementById('status');
-    var spinnerEl = document.getElementById('spinner');
-    var hintEl    = document.getElementById('hint');
-    var infoEl    = document.getElementById('info');
+<script>
+// ─── Viewport scaling ───────────────────────────────────────────────────────
+const GAME_W = 1280, GAME_H = 720;
+const scaler = document.getElementById('scaler');
+function resize() {
+  const scaleX = window.innerWidth  / GAME_W;
+  const scaleY = window.innerHeight / GAME_H;
+  const scale  = Math.min(scaleX, scaleY);
+  const offX   = (window.innerWidth  - GAME_W * scale) / 2;
+  const offY   = (window.innerHeight - GAME_H * scale) / 2;
+  scaler.style.transform = `translate(${offX}px,${offY}px) scale(${scale})`;
+}
+resize();
+window.addEventListener('resize', resize);
 
-    var Module = {
-      canvas: (function() {
-        var canvas = document.getElementById('canvas');
-        canvas.addEventListener('webglcontextlost', function(e) {
-          e.preventDefault();
-        }, false);
-        return canvas;
-      })(),
-      setStatus: function(text) {
-        if (text) {
-          statusEl.textContent = text;
-        } else {
-          spinnerEl.style.display = 'none';
-          statusEl.textContent = '';
-        }
-      },
-      monitorRunDependencies: function(left) {
-        if (left === 0) {
-          spinnerEl.style.display = 'none';
-          hintEl.style.display = 'block';
-          infoEl.classList.add('visible');
-        }
-      },
-      onRuntimeInitialized: function() {
-        spinnerEl.style.display = 'none';
-        statusEl.textContent = '';
-      }
-    };
+// ─── Key dispatch helpers ───────────────────────────────────────────────────
+function fireKey(type, key, code, keyCode) {
+  const ev = new KeyboardEvent(type, {
+    key, code, keyCode, which: keyCode,
+    bubbles: true, cancelable: true
+  });
+  document.dispatchEvent(ev);
+  window.dispatchEvent(ev);
+  const canvas = document.getElementById('canvas');
+  if (canvas) canvas.dispatchEvent(ev);
+}
+function pressKey(key, code, keyCode) {
+  fireKey('keydown', key, code, keyCode);
+}
+function releaseKey(key, code, keyCode) {
+  fireKey('keyup', key, code, keyCode);
+}
 
-    // Hide hint + info once the player presses Enter (they’re in-game)
-    window.addEventListener('keydown', function(e) {
-      if (e.key === 'Enter' || e.keyCode === 13) {
-        hintEl.style.display = 'none';
-        infoEl.classList.remove('visible');
-      }
-    });
+// ─── State flags ────────────────────────────────────────────────────────────
+let gameStarted = false;
 
-    window.onerror = function(msg) {
-      statusEl.textContent = 'Error: ' + msg;
-      statusEl.style.color = '#e06060';
-    };
-  </script>
-  <script async type="text/javascript" src="index.js"></script>
+// ─── Tap-to-start ───────────────────────────────────────────────────────────
+const tapStart  = document.getElementById('tap-start');
+const tapLabel  = document.getElementById('tap-label');
+const touchUI   = document.getElementById('touch-ui');
+const loader    = document.getElementById('loader');
+
+function doStart() {
+  if (gameStarted) return;
+  gameStarted = true;
+  tapStart.classList.add('hidden');
+  touchUI.classList.remove('hidden');
+  // Fire ENTER to transition MENU → PLAYING
+  pressKey('Enter', 'Enter', 13);
+  setTimeout(() => releaseKey('Enter', 'Enter', 13), 80);
+}
+
+tapLabel.addEventListener('click', doStart);
+tapLabel.addEventListener('touchstart', e => { e.preventDefault(); doStart(); }, { passive: false });
+
+// Also allow physical keyboard Enter to start
+window.addEventListener('keydown', e => {
+  if (!gameStarted && (e.key === 'Enter' || e.key === ' ')) doStart();
+});
+
+// ─── Touch button helper ────────────────────────────────────────────────────
+function makeTouchBtn(id, key, code, keyCode) {
+  const btn = document.getElementById(id);
+  function down(e) {
+    e.preventDefault();
+    btn.classList.add('pressed');
+    pressKey(key, code, keyCode);
+  }
+  function up(e) {
+    e.preventDefault();
+    btn.classList.remove('pressed');
+    releaseKey(key, code, keyCode);
+  }
+  btn.addEventListener('touchstart',  down, { passive: false });
+  btn.addEventListener('touchend',    up,   { passive: false });
+  btn.addEventListener('touchcancel', up,   { passive: false });
+  btn.addEventListener('mousedown', down);
+  btn.addEventListener('mouseup',   up);
+  btn.addEventListener('mouseleave',up);
+}
+
+makeTouchBtn('btn-left',     'ArrowLeft',  'ArrowLeft',  37);
+makeTouchBtn('btn-right',    'ArrowRight', 'ArrowRight', 39);
+makeTouchBtn('btn-jump',     ' ',          'Space',      32);
+makeTouchBtn('btn-interact', 'e',          'KeyE',       69);
+makeTouchBtn('btn-pause',    'Escape',     'Escape',     27);
+
+// ─── Emscripten Module ──────────────────────────────────────────────────────
+var Module = {
+  canvas: (function() {
+    var c = document.getElementById('canvas');
+    c.addEventListener('webglcontextlost', e => e.preventDefault(), false);
+    return c;
+  })(),
+  setStatus: function(text) {
+    if (!text) {
+      loader.classList.add('hidden');
+    }
+  },
+  monitorRunDependencies: function(left) {
+    if (left === 0) {
+      loader.classList.add('hidden');
+    }
+  },
+  onRuntimeInitialized: function() {
+    loader.classList.add('hidden');
+  }
+};
+
+window.onerror = function(msg) {
+  loader.innerHTML = '<span style="color:#e06060">Error: ' + msg + '</span>';
+};
+</script>
+<script async type="text/javascript" src="index.js"></script>
 </body>
 </html>
